@@ -81,7 +81,7 @@ pre {
 
 .hud-shell {
   display: grid;
-  grid-template-columns: 194px minmax(0, 1fr) 52px;
+  grid-template-columns: 194px minmax(0, 1fr) 300px;
   grid-template-rows: minmax(0, 1fr) 110px;
   gap: 0;
   width: 100vw;
@@ -161,7 +161,7 @@ pre {
 .center-stage {
   position: relative;
   display: grid;
-  grid-template-rows: 30px minmax(0, 1fr) 52px;
+  grid-template-rows: 34px minmax(0, 1fr) 52px;
   min-width: 0;
   min-height: 0;
   border: 3px solid var(--red);
@@ -176,16 +176,61 @@ pre {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   min-width: 0;
   padding: 7px 10px;
   color: rgba(255, 255, 255, .5);
   font-weight: 700;
 }
 
+.stage-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 190px;
+  white-space: nowrap;
+}
+
+.stage-title strong {
+  color: rgba(255, 255, 255, .82);
+  font-size: 15px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
 .stage-actions {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.stage-tabs,
+.inspector-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.stage-tabs {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+.tab-button {
+  min-width: 54px;
+  height: 22px;
+  padding: 0 8px;
+  border-color: rgba(255, 255, 255, .18);
+  color: rgba(255, 255, 255, .54);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.tab-button.active {
+  border-color: rgba(255, 43, 29, .72);
+  background: rgba(255, 43, 29, .22);
+  color: rgba(255, 255, 255, .9);
 }
 
 .segmented {
@@ -222,6 +267,18 @@ pre {
   overflow: hidden;
   border-top: 1px solid rgba(255, 43, 29, .3);
   border-bottom: 1px solid rgba(255, 43, 29, .35);
+}
+
+.tab-panel {
+  display: none;
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+.tab-panel.active {
+  display: block;
 }
 
 .viewport::before {
@@ -285,6 +342,10 @@ pre {
 }
 
 .feed-copy {
+  position: absolute;
+  right: 20px;
+  bottom: 54px;
+  z-index: 2;
   display: grid;
   justify-items: end;
   color: rgba(255, 255, 255, .64);
@@ -293,8 +354,34 @@ pre {
 
 .feed-copy strong {
   color: rgba(255, 255, 255, .78);
-  font-size: clamp(28px, 5vw, 78px);
-  line-height: .9;
+  font-size: clamp(18px, 2vw, 30px);
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.feed-mode {
+  color: rgba(255, 255, 255, .52);
+  text-align: right;
+}
+
+.placeholder-panel {
+  place-content: center;
+  padding: 24px;
+  text-align: center;
+}
+
+.placeholder-panel.active {
+  display: grid;
+}
+
+.placeholder-panel strong {
+  color: rgba(255, 255, 255, .82);
+  font-size: clamp(20px, 3vw, 46px);
+  text-transform: uppercase;
+}
+
+.placeholder-panel span {
+  color: rgba(255, 255, 255, .48);
 }
 
 .play-indicator {
@@ -334,10 +421,10 @@ pre {
 .right-rail {
   position: relative;
   display: grid;
-  grid-template-rows: .8fr .8fr .9fr 1fr;
-  gap: 10px;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
   min-width: 0;
-  padding: 52px 6px 14px;
+  padding: 52px 24px 14px 14px;
   border-left: 1px solid rgba(255, 255, 255, .12);
 }
 
@@ -357,16 +444,33 @@ pre {
   border-left: 2px solid rgba(255, 255, 255, .38);
 }
 
-.compact {
+.inspector-tabs {
   position: relative;
   z-index: 1;
-  width: 100%;
-  transform: translateX(-3px);
+  flex-wrap: wrap;
+  padding-right: 22px;
 }
 
-.compact h2 {
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
+.inspector-tabs .tab-button {
+  flex: 1 1 54px;
+  min-width: 0;
+}
+
+.inspector-panel {
+  display: none;
+  position: relative;
+  z-index: 1;
+}
+
+.inspector-panel.active {
+  display: block;
+}
+
+.inspector-panel h2 {
+  margin-bottom: 10px;
+  color: rgba(255, 255, 255, .78);
+  writing-mode: initial;
+  transform: none;
 }
 
 .bottom-console {
@@ -480,8 +584,11 @@ pre {
   overflow-wrap: anywhere;
 }
 
-.tool-list .row:nth-of-type(n + 7) {
-  display: none;
+.tool-list h3 {
+  margin: 9px 0 3px;
+  color: rgba(255, 255, 255, .42);
+  font-size: 10px;
+  text-transform: uppercase;
 }
 
 .code-card {
@@ -543,11 +650,6 @@ pre {
 
   .tick-stack {
     display: none;
-  }
-
-  .compact h2 {
-    writing-mode: initial;
-    transform: none;
   }
 
   .bottom-console {

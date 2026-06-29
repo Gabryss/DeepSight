@@ -116,6 +116,22 @@ function render(payload) {
   renderTools(payload.tools);
 }
 
+function activateTab(button) {
+  const targetId = button.dataset.tabTarget;
+  const target = document.getElementById(targetId);
+  if (!target) {
+    return;
+  }
+  const group = button.closest("nav");
+  const scope = target.parentElement;
+  group.querySelectorAll(".tab-button").forEach((tab) => {
+    tab.classList.toggle("active", tab === button);
+  });
+  scope.querySelectorAll(".tab-panel, .inspector-panel").forEach((panel) => {
+    panel.classList.toggle("active", panel === target);
+  });
+}
+
 async function refresh() {
   const response = await fetch("/api/status");
   render(await response.json());
@@ -161,6 +177,9 @@ function connectLive() {
 $("#refresh").addEventListener("click", refresh);
 $("#mode-dds").addEventListener("click", () => setMode("dds"));
 $("#mode-zenoh").addEventListener("click", () => setMode("zenoh"));
+document.querySelectorAll("[data-tab-target]").forEach((button) => {
+  button.addEventListener("click", () => activateTab(button));
+});
 
 refresh();
 connectLive();

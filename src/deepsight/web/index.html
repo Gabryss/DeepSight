@@ -34,7 +34,17 @@
 
       <section class="center-stage" aria-label="Primary mission view">
         <header class="stage-top">
-          <span>compiling codex ..... </span>
+          <div class="stage-title">
+            <strong>DeepSight</strong>
+            <span>compiling codex ..... </span>
+          </div>
+          <nav class="stage-tabs" aria-label="Primary view tabs">
+            <button class="tab-button active" data-tab-target="feed-live" type="button">Live</button>
+            <button class="tab-button" data-tab-target="feed-cloud" type="button">Cloud</button>
+            <button class="tab-button" data-tab-target="feed-map" type="button">Map</button>
+            <button class="tab-button" data-tab-target="feed-camera" type="button">Camera</button>
+            <button class="tab-button" data-tab-target="feed-costmap" type="button">Costmap</button>
+          </nav>
           <div class="stage-actions">
             <div class="segmented" aria-label="Middleware mode">
               <button id="mode-dds" class="active" type="button">DDS</button>
@@ -45,23 +55,42 @@
         </header>
 
         <div class="viewport">
-          <div class="viewport-grid"></div>
-          <div class="point-field" aria-hidden="true">
-            <span style="--x: 12%; --y: 31%"></span>
-            <span style="--x: 20%; --y: 62%"></span>
-            <span style="--x: 31%; --y: 43%"></span>
-            <span style="--x: 43%; --y: 68%"></span>
-            <span style="--x: 58%; --y: 38%"></span>
-            <span style="--x: 72%; --y: 56%"></span>
-            <span style="--x: 84%; --y: 30%"></span>
-            <span style="--x: 88%; --y: 74%"></span>
+          <div id="feed-live" class="tab-panel active">
+            <div class="viewport-grid"></div>
+            <div class="point-field" aria-hidden="true">
+              <span style="--x: 12%; --y: 31%"></span>
+              <span style="--x: 20%; --y: 62%"></span>
+              <span style="--x: 31%; --y: 43%"></span>
+              <span style="--x: 43%; --y: 68%"></span>
+              <span style="--x: 58%; --y: 38%"></span>
+              <span style="--x: 72%; --y: 56%"></span>
+              <span style="--x: 84%; --y: 30%"></span>
+              <span style="--x: 88%; --y: 74%"></span>
+            </div>
+            <div class="feed-copy">
+              <strong>Primary Feed</strong>
+              <span>live stream and operator annotations</span>
+            </div>
+          </div>
+          <div id="feed-cloud" class="tab-panel placeholder-panel">
+            <strong>Point Cloud</strong>
+            <span>incoming point cloud viewport</span>
+          </div>
+          <div id="feed-map" class="tab-panel placeholder-panel">
+            <strong>Map</strong>
+            <span>local and global map summary</span>
+          </div>
+          <div id="feed-camera" class="tab-panel placeholder-panel">
+            <strong>Camera</strong>
+            <span>front camera feed</span>
+          </div>
+          <div id="feed-costmap" class="tab-panel placeholder-panel">
+            <strong>Costmap</strong>
+            <span>navigation costmap and goal overlay</span>
           </div>
           <div class="feed-frame">
             <span class="feed-label">SOURCE: live stream</span>
-            <div class="feed-copy">
-              <strong>DEEPSIGHT</strong>
-              <span>UNDERGROUND OPERATIONS INTERFACE</span>
-            </div>
+            <span class="feed-mode">UNDERGROUND OPERATIONS INTERFACE</span>
           </div>
           <button class="play-indicator" type="button" title="Primary feed">▶Ⅱ</button>
         </div>
@@ -93,24 +122,31 @@
           <span></span><span></span><span></span><span></span><span></span><span></span>
         </div>
 
-        <section class="rail-block compact">
-          <h2>Bandwidth</h2>
-          <div id="bandwidth" class="micro-list"></div>
+        <nav class="inspector-tabs" aria-label="Telemetry tabs">
+          <button class="tab-button active" data-tab-target="inspect-tools" type="button">Tools</button>
+          <button class="tab-button" data-tab-target="inspect-nodes" type="button">Nodes</button>
+          <button class="tab-button" data-tab-target="inspect-topics" type="button">Topics</button>
+          <button class="tab-button" data-tab-target="inspect-bandwidth" type="button">BW</button>
+        </nav>
+
+        <section id="inspect-tools" class="rail-block inspector-panel active">
+          <h2>Tool Readiness</h2>
+          <div id="tools" class="tool-list"></div>
         </section>
 
-        <section class="rail-block compact">
-          <h2>Nodes</h2>
+        <section id="inspect-nodes" class="rail-block inspector-panel">
+          <h2>ROS Nodes</h2>
           <div id="nodes" class="chips"></div>
         </section>
 
-        <section class="rail-block compact">
-          <h2>Topics</h2>
+        <section id="inspect-topics" class="rail-block inspector-panel">
+          <h2>ROS Topics</h2>
           <div id="topics" class="chips"></div>
         </section>
 
-        <section class="rail-block compact">
-          <h2>Tools</h2>
-          <div id="tools" class="tool-list"></div>
+        <section id="inspect-bandwidth" class="rail-block inspector-panel">
+          <h2>Bandwidth</h2>
+          <div id="bandwidth" class="micro-list"></div>
         </section>
       </aside>
 
