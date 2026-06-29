@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DeepSight</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <img src="/mark.svg" alt="" class="mark" />
+        <div>
+          <h1>DeepSight</h1>
+          <p id="mission-name">Local mission dashboard</p>
+        </div>
+      </div>
+      <div class="toolbar">
+        <div class="segmented" aria-label="Middleware mode">
+          <button id="mode-dds" class="active" type="button">DDS</button>
+          <button id="mode-zenoh" type="button">Zenoh</button>
+        </div>
+        <button id="refresh" class="icon-button" type="button" title="Refresh">↻</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="status-strip" aria-label="Mission status">
+        <div>
+          <span class="label">Robots</span>
+          <strong id="robot-count">0/0</strong>
+        </div>
+        <div>
+          <span class="label">ROS</span>
+          <strong id="ros-state">Unknown</strong>
+        </div>
+        <div>
+          <span class="label">Topics</span>
+          <strong id="topic-count">0</strong>
+        </div>
+        <div>
+          <span class="label">Mode</span>
+          <strong id="mode-state">DDS</strong>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article class="panel wide">
+          <div class="panel-head">
+            <h2>Robot Links</h2>
+          </div>
+          <div id="robots" class="robot-grid"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Battery</h2>
+          </div>
+          <div id="batteries" class="list"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Commands</h2>
+          </div>
+          <div id="commands" class="command-list"></div>
+          <pre id="command-output" class="output"></pre>
+        </article>
+
+        <article class="panel wide">
+          <div class="panel-head">
+            <h2>ROS Graph</h2>
+          </div>
+          <div class="ros-columns">
+            <div>
+              <h3>Nodes</h3>
+              <div id="nodes" class="chips"></div>
+            </div>
+            <div>
+              <h3>Topics</h3>
+              <div id="topics" class="chips"></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Bandwidth</h2>
+          </div>
+          <div id="bandwidth" class="list"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Required Tools</h2>
+          </div>
+          <div id="tools" class="tool-list"></div>
+        </article>
+
+        <article class="panel full">
+          <div class="panel-head">
+            <h2>TF Tree</h2>
+          </div>
+          <pre id="tf-tree" class="tf-output"></pre>
+        </article>
+      </section>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
