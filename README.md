@@ -40,6 +40,7 @@ The browser can only run configured command IDs. It cannot submit arbitrary shel
 - Battery probe hooks per robot.
 - DDS/Zenoh mode indicator for mission coordination.
 - Allowlisted remote commands for rover restart, launch, bagging, and recovery.
+- Post-processing tab for selecting a configured ROS bag, filtering topics, and starting/stopping `ros2 bag play`.
 - Required underground mission tool checklist with local availability status.
 - WebSocket updates for live monitoring.
 

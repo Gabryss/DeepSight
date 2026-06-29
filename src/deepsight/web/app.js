@@ -1,5 +1,7 @@
 const state = {
   latest: null,
+  bags: [],
+  selectedBagPath: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -159,6 +161,51 @@ function formatBytes(value) {
   return `${size.toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
+function selectedBag() {
+  return state.bags.find((bag) => bag.path === state.selectedBagPath) ?? state.bags[0] ?? null;
+}
+
+function renderPostProcessingControls() {
+  const select = $("#post-bag-select");
+  const summary = $("#post-bag-summary");
+  const topicsRoot = $("#post-topic-list");
+  const current = selectedBag();
+  select.replaceChildren();
+  summary.replaceChildren();
+  topicsRoot.replaceChildren();
+
+  for (const bag of state.bags) {
+    const option = document.createElement("option");
+    option.value = bag.path;
+    option.textContent = bag.name;
+    option.selected = bag.path === current?.path;
+    select.append(option);
+  }
+
+  if (!current) {
+    summary.textContent = "No bags available under bag_root.";
+    return;
+  }
+
+  state.selectedBagPath = current.path;
+  summary.innerHTML = `
+    <span>${current.path}</span>
+    <strong>${current.message_count} messages · ${current.topic_count} topics · ${current.duration_sec ?? "?"}s · ${formatBytes(current.size_bytes)}</strong>
+    <span>visual: ${(current.capabilities?.visualizable ?? []).join(", ") || "none"}</span>
+  `;
+
+  for (const topic of current.topics ?? []) {
+    const label = document.createElement("label");
+    label.className = "topic-option";
+    label.innerHTML = `
+      <input type="checkbox" value="${topic.name}" />
+      <span><strong>${topic.name}</strong><span>${topic.type}</span></span>
+      <span>${topic.messages}</span>
+    `;
+    topicsRoot.append(label);
+  }
+}
+
 function renderBags(payload) {
   const root = $("#bags");
   root.replaceChildren();
@@ -187,6 +234,12 @@ function renderBags(payload) {
     `;
     root.append(row);
   }
+
+  state.bags = payload.bags ?? [];
+  if (!state.selectedBagPath && state.bags.length) {
+    state.selectedBagPath = state.bags[0].path;
+  }
+  renderPostProcessingControls();
 }
 
 function render(payload) {
@@ -234,6 +287,47 @@ async function refreshBags() {
   renderBags(await response.json());
 }
 
+async function refreshPostProcessingStatus() {
+  const response = await fetch("/api/post-processing/status");
+  const status = await response.json();
+  $("#post-status").textContent = [
+    status.running ? `running pid ${status.pid}` : "idle",
+    status.bag_path,
+    status.topics?.length ? `topics: ${status.topics.join(", ")}` : "topics: all",
+    `rate: ${status.rate ?? 1}`,
+    `loop: ${status.loop ? "yes" : "no"}`,
+  ].filter(Boolean).join("\n");
+}
+
+async function playPostProcessingBag() {
+  const bag = selectedBag();
+  if (!bag) {
+    $("#post-status").textContent = "No bag selected.";
+    return;
+  }
+  const topics = Array.from(document.querySelectorAll("#post-topic-list input:checked")).map((input) => input.value);
+  const response = await fetch("/api/post-processing/play", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      bag_path: bag.path,
+      topics,
+      rate: Number.parseFloat($("#post-rate").value || "1"),
+      loop: $("#post-loop").checked,
+    }),
+  });
+  const payload = await response.json();
+  $("#post-status").textContent = payload.ok ? "playback started" : payload.error;
+  await refreshPostProcessingStatus();
+}
+
+async function stopPostProcessingBag() {
+  const response = await fetch("/api/post-processing/stop", { method: "POST" });
+  const payload = await response.json();
+  $("#post-status").textContent = payload.ok ? "playback stopped" : payload.error;
+  await refreshPostProcessingStatus();
+}
+
 async function setMode(mode) {
   await fetch("/api/middleware", {
     method: "POST",
@@ -274,10 +368,17 @@ function connectLive() {
 $("#refresh").addEventListener("click", refresh);
 $("#mode-dds").addEventListener("click", () => setMode("dds"));
 $("#mode-zenoh").addEventListener("click", () => setMode("zenoh"));
+$("#post-bag-select").addEventListener("change", (event) => {
+  state.selectedBagPath = event.target.value;
+  renderPostProcessingControls();
+});
+$("#post-play").addEventListener("click", playPostProcessingBag);
+$("#post-stop").addEventListener("click", stopPostProcessingBag);
 document.querySelectorAll("[data-tab-target]").forEach((button) => {
   button.addEventListener("click", () => activateTab(button));
 });
 
 refresh();
 refreshBags();
+refreshPostProcessingStatus();
 connectLive();

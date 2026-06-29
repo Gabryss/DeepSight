@@ -7,11 +7,12 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from deepsight.bags import bag_inventory
 from deepsight.config import AppConfig, load_config
 from deepsight.network import robot_batteries, robot_connectivity
+from deepsight.postprocessing import BagPlayback, start_bag_playback, stop_bag_playback
 from deepsight.ros import ros_snapshot
 from deepsight.runner import command_available, find_command, run_shell_command_async, start_background_command_async
 from deepsight.tools import MISSION_TOOLS, mission_tools_payload
@@ -23,6 +24,13 @@ class CommandRequest(BaseModel):
 
 class MiddlewareRequest(BaseModel):
     mode: str
+
+
+class BagPlaybackRequest(BaseModel):
+    bag_path: str
+    topics: list[str] = Field(default_factory=list)
+    rate: float = 1.0
+    loop: bool = False
 
 
 def _tool_status(config: AppConfig) -> list[dict[str, object]]:
@@ -84,6 +92,7 @@ def create_app() -> FastAPI:
     app.state.middleware_mode = "dds"
     app.state.snapshot_cache = None
     app.state.snapshot_cached_at = 0.0
+    app.state.bag_playback = BagPlayback()
 
     @app.get("/api/health")
     async def health() -> dict[str, object]:
@@ -104,6 +113,26 @@ def create_app() -> FastAPI:
     @app.get("/api/bags")
     async def bags() -> dict[str, object]:
         return await asyncio.to_thread(bag_inventory, config)
+
+    @app.get("/api/post-processing/status")
+    async def post_processing_status() -> dict[str, object]:
+        return app.state.bag_playback.status()
+
+    @app.post("/api/post-processing/play")
+    async def post_processing_play(request: BagPlaybackRequest) -> dict[str, object]:
+        return await asyncio.to_thread(
+            start_bag_playback,
+            app.state.bag_playback,
+            config,
+            request.bag_path,
+            request.topics,
+            request.rate,
+            request.loop,
+        )
+
+    @app.post("/api/post-processing/stop")
+    async def post_processing_stop() -> dict[str, object]:
+        return await asyncio.to_thread(stop_bag_playback, app.state.bag_playback)
 
     @app.get("/api/status")
     async def status() -> dict[str, object]:

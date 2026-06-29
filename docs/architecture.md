@@ -51,5 +51,6 @@ System and robot dependencies:
 - Set `background = true` for long-running launch or bag commands.
 - Add battery commands per robot with `battery_command`.
 - Set `[mission].bag_root` to a ROS bag directory to populate the dashboard bag inventory.
+- Use the Post Processing tab to select a known bag, filter playback by recorded topics, and start or stop `ros2 bag play`.
 - Extend `src/deepsight/ros.py` for actions, lifecycle nodes, parameters, or costmap summaries.
 - Add authenticated reverse proxying before exposing the dashboard beyond localhost.
