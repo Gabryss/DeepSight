@@ -11,7 +11,7 @@ def _lines(result: CommandResult) -> list[str]:
 
 
 def ros_snapshot(config: AppConfig) -> dict[str, object]:
-    if not command_available("ros2"):
+    if not command_available("ros2", config):
         return {
             "available": False,
             "topics": [],

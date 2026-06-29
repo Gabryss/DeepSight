@@ -20,10 +20,17 @@ class CommandResult:
     timed_out: bool = False
 
 
-def command_available(command: str | None) -> bool | None:
+def _needs_ros_setup(command: str) -> bool:
+    return command.strip().startswith(("ros2", "rviz2", "rqt_", "zenoh-bridge")) or " ros2 " in f" {command} "
+
+
+def command_available(command: str | None, config: AppConfig | None = None) -> bool | None:
     if not command:
         return None
     executable = shlex.split(command)[0]
+    if config and config.mission.ros_setup and _needs_ros_setup(command):
+        result = run_shell_command(f"command -v {shlex.quote(executable)}", 2, config)
+        return result.ok and bool(result.stdout)
     return shutil.which(executable) is not None
 
 
@@ -66,10 +73,7 @@ def run_shell_command(command: str, timeout_sec: float, config: AppConfig | None
 
 def prepare_command(command: str, config: AppConfig | None = None) -> str:
     effective_command = command
-    if config and (
-        command.strip().startswith(("ros2 ", "rviz2", "rqt_", "zenoh-bridge"))
-        or " ros2 " in f" {command} "
-    ):
+    if config and _needs_ros_setup(command):
         effective_command = f"{_ros_shell_prefix(config)}{command}"
     return effective_command
 

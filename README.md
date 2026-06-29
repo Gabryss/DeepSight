@@ -13,6 +13,8 @@ deepsight --config configs/mission.example.toml --host 127.0.0.1 --port 8766
 
 Open http://127.0.0.1:8766.
 
+DeepSight automatically sources `[mission].ros_setup` for ROS commands, so a plain shell can start the server as long as the configured setup file exists.
+
 ## Mission Configuration
 
 Copy `configs/mission.example.toml` for each field test and edit:

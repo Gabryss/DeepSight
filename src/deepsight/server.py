@@ -24,7 +24,7 @@ class MiddlewareRequest(BaseModel):
     mode: str
 
 
-def _tool_status() -> list[dict[str, object]]:
+def _tool_status(config: AppConfig) -> list[dict[str, object]]:
     status = []
     for category, tools in MISSION_TOOLS.items():
         status.append(
@@ -35,7 +35,7 @@ def _tool_status() -> list[dict[str, object]]:
                         "name": tool.name,
                         "command": tool.command,
                         "required": tool.required,
-                        "available": command_available(tool.command),
+                        "available": command_available(tool.command, config),
                     }
                     for tool in tools
                 ],
@@ -48,7 +48,7 @@ def _mission_snapshot(config: AppConfig, middleware_mode: str) -> dict[str, obje
     return {
         "mission": config.mission.model_dump(),
         "middleware_mode": middleware_mode,
-        "tools": _tool_status(),
+        "tools": _tool_status(config),
         "robots": robot_connectivity(config),
         "batteries": robot_batteries(config),
         "ros": ros_snapshot(config),
