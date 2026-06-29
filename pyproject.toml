@@ -1,0 +1,34 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "deepsight"
+version = "0.1.0"
+description = "Local mission dashboard for underground field robotics experiments."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "BSD-3-Clause" }
+authors = [{ name = "Gabriel" }]
+dependencies = [
+  "fastapi>=0.111,<1.0",
+  "pydantic>=2.7,<3.0",
+  "pydantic-settings>=2.3,<3.0",
+  "uvicorn[standard]>=0.30,<1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.27,<1.0",
+  "pytest>=8.2,<9.0",
+]
+
+[project.scripts]
+deepsight = "deepsight.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/deepsight"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

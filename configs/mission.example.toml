@@ -1,0 +1,41 @@
+[mission]
+name = "Underground Field Experiment"
+operator = "field-team"
+ros_setup = "/opt/ros/jazzy/setup.bash"
+poll_interval_sec = 2.0
+
+[network]
+ping_timeout_sec = 1.0
+
+[[robots]]
+id = "rover-1"
+label = "Rover 1"
+host = "192.168.1.41"
+ssh_target = "robot@192.168.1.41"
+battery_command = "ros2 topic echo --once /battery_state sensor_msgs/msg/BatteryState --field percentage"
+
+[[robots]]
+id = "base-station"
+label = "Base Station"
+host = "192.168.1.10"
+
+[[commands]]
+id = "restart-rover-1"
+label = "Restart rover service"
+target = "rover-1"
+command = "ssh robot@192.168.1.41 sudo systemctl restart rover.service"
+timeout_sec = 20
+
+[[commands]]
+id = "launch-navigation"
+label = "Launch navigation stack"
+command = "ros2 launch nav2_bringup navigation_launch.py"
+timeout_sec = 5
+background = true
+
+[[commands]]
+id = "record-bag"
+label = "Start ROS bag recording"
+command = "ros2 bag record -a -o bags/field_run"
+timeout_sec = 5
+background = true
