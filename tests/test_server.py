@@ -43,6 +43,40 @@ def test_mission_snapshot_returns_status(monkeypatch, tmp_path):
     assert payload["commands"][0]["id"] == "noop"
 
 
+def test_cached_mission_snapshot_reuses_recent_payload(monkeypatch, tmp_path):
+    config_path = tmp_path / "mission.toml"
+    config_path.write_text("[mission]\nname = \"API Test\"\npoll_interval_sec = 5\n", encoding="utf-8")
+    monkeypatch.setenv("DEEPSIGHT_CONFIG", str(config_path))
+    calls = []
+
+    def fake_snapshot(config, mode):
+        calls.append(mode)
+        return {"mode": mode, "count": len(calls)}
+
+    monkeypatch.setattr(server, "_mission_snapshot", fake_snapshot)
+    app = server.create_app()
+
+    first = server._cached_mission_snapshot(app, app.state.config)
+    second = server._cached_mission_snapshot(app, app.state.config)
+
+    assert first == second
+    assert len(calls) == 1
+
+
+def test_invalidate_snapshot_cache_clears_cached_payload(monkeypatch, tmp_path):
+    config_path = tmp_path / "mission.toml"
+    config_path.write_text("[mission]\nname = \"API Test\"\n", encoding="utf-8")
+    monkeypatch.setenv("DEEPSIGHT_CONFIG", str(config_path))
+    app = server.create_app()
+    app.state.snapshot_cache = {"cached": True}
+    app.state.snapshot_cached_at = 10.0
+
+    server._invalidate_snapshot_cache(app)
+
+    assert app.state.snapshot_cache is None
+    assert app.state.snapshot_cached_at == 0.0
+
+
 @pytest.mark.anyio
 async def test_config_endpoint_returns_public_config(monkeypatch, tmp_path):
     config_path = tmp_path / "mission.toml"

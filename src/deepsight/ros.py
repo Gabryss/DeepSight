@@ -25,9 +25,9 @@ def ros_snapshot(config: AppConfig) -> dict[str, object]:
     topics = run_shell_command("ros2 topic list", 3, config)
     nodes = run_shell_command("ros2 node list", 3, config)
     services = run_shell_command("ros2 service list", 3, config)
-    tf_tree = run_shell_command("ros2 run tf2_tools view_frames --ros-args --log-level fatal", 5, config)
 
     topic_names = _lines(topics)
+    tf_topics = [topic for topic in topic_names if topic in {"/tf", "/tf_static"}]
     bandwidth = []
     for topic in topic_names[:8]:
         result = run_shell_command(f"timeout 2 ros2 topic bw {topic}", 3, config)
@@ -45,6 +45,6 @@ def ros_snapshot(config: AppConfig) -> dict[str, object]:
         "topics": topic_names,
         "nodes": _lines(nodes),
         "services": _lines(services),
-        "tf_tree": tf_tree.stdout or tf_tree.stderr,
+        "tf_tree": "TF topics active: " + ", ".join(tf_topics) if tf_topics else "No /tf or /tf_static topics detected",
         "bandwidth": bandwidth,
     }

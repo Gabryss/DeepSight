@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -56,12 +57,33 @@ def _mission_snapshot(config: AppConfig, middleware_mode: str) -> dict[str, obje
     }
 
 
+def _cached_mission_snapshot(app: FastAPI, config: AppConfig) -> dict[str, object]:
+    now = time.monotonic()
+    cached_at = getattr(app.state, "snapshot_cached_at", 0.0)
+    cached_payload = getattr(app.state, "snapshot_cache", None)
+    ttl = max(0.5, config.mission.poll_interval_sec)
+    if cached_payload is not None and now - cached_at < ttl:
+        return cached_payload
+
+    payload = _mission_snapshot(config, app.state.middleware_mode)
+    app.state.snapshot_cache = payload
+    app.state.snapshot_cached_at = now
+    return payload
+
+
+def _invalidate_snapshot_cache(app: FastAPI) -> None:
+    app.state.snapshot_cache = None
+    app.state.snapshot_cached_at = 0.0
+
+
 def create_app() -> FastAPI:
     config = load_config()
     static_dir = Path(__file__).parent / "web"
     app = FastAPI(title="DeepSight", version="0.1.0")
     app.state.config = config
     app.state.middleware_mode = "dds"
+    app.state.snapshot_cache = None
+    app.state.snapshot_cached_at = 0.0
 
     @app.get("/api/health")
     async def health() -> dict[str, object]:
@@ -85,13 +107,14 @@ def create_app() -> FastAPI:
 
     @app.get("/api/status")
     async def status() -> dict[str, object]:
-        return await asyncio.to_thread(_mission_snapshot, config, app.state.middleware_mode)
+        return await asyncio.to_thread(_cached_mission_snapshot, app, config)
 
     @app.post("/api/middleware")
     async def middleware(request: MiddlewareRequest) -> dict[str, object]:
         if request.mode not in {"dds", "zenoh"}:
             raise HTTPException(status_code=400, detail="mode must be 'dds' or 'zenoh'")
         app.state.middleware_mode = request.mode
+        _invalidate_snapshot_cache(app)
         return {"mode": request.mode}
 
     @app.post("/api/commands/run")
@@ -118,7 +141,7 @@ def create_app() -> FastAPI:
         await websocket.accept()
         try:
             while True:
-                payload = await asyncio.to_thread(_mission_snapshot, config, app.state.middleware_mode)
+                payload = await asyncio.to_thread(_cached_mission_snapshot, app, config)
                 await websocket.send_json(payload)
                 await asyncio.sleep(config.mission.poll_interval_sec)
         except WebSocketDisconnect:

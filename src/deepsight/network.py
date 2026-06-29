@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from concurrent.futures import ThreadPoolExecutor
 
 from deepsight.config import AppConfig, Robot
@@ -10,14 +11,9 @@ def ping_robot(robot: Robot, config: AppConfig) -> dict[str, object]:
     timeout = max(1, int(config.network.ping_timeout_sec))
     result = run_shell_command(f"ping -c 1 -W {timeout} {robot.host}", timeout + 1, None)
     latency = None
-    for token in result.stdout.replace("=", " ").replace("/", " ").split():
-        try:
-            value = float(token)
-        except ValueError:
-            continue
-        if "time=" in result.stdout:
-            latency = value
-            break
+    match = re.search(r"time[=<]([0-9.]+)", result.stdout)
+    if match:
+        latency = float(match.group(1))
     return {
         "id": robot.id,
         "label": robot.label,
