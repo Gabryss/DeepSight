@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from deepsight.bags import bag_inventory
 from deepsight.config import AppConfig, load_config
 from deepsight.network import robot_batteries, robot_connectivity
 from deepsight.ros import ros_snapshot
@@ -77,6 +78,10 @@ def create_app() -> FastAPI:
     @app.get("/api/tools")
     async def required_tools() -> list[dict[str, object]]:
         return mission_tools_payload()
+
+    @app.get("/api/bags")
+    async def bags() -> dict[str, object]:
+        return await asyncio.to_thread(bag_inventory, config)
 
     @app.get("/api/status")
     async def status() -> dict[str, object]:

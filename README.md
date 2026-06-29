@@ -21,6 +21,13 @@ Copy `configs/mission.example.toml` for each field test and edit:
 - `[[commands]]`: allowlisted launch, restart, recording, or recovery commands.
 - `background = true`: use this for long-running launch or bag commands.
 - `[mission].ros_setup`: ROS 2 setup script to source before ROS CLI probes.
+- `[mission].bag_root`: local ROS bag root for the dashboard bag inventory.
+
+The example config points at the current trial dataset:
+
+```toml
+bag_root = "/home/gabriel/bag_files/mine_nider"
+```
 
 The browser can only run configured command IDs. It cannot submit arbitrary shell text.
 

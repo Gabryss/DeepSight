@@ -3,6 +3,7 @@ name = "Underground Field Experiment"
 operator = "field-team"
 ros_setup = "/opt/ros/jazzy/setup.bash"
 poll_interval_sec = 2.0
+bag_root = "/home/gabriel/bag_files/mine_nider"
 
 [network]
 ping_timeout_sec = 1.0

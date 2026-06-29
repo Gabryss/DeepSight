@@ -101,6 +101,49 @@ function renderTools(groups) {
   }
 }
 
+function formatBytes(value) {
+  if (!value) {
+    return "0 B";
+  }
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let size = value;
+  let index = 0;
+  while (size >= 1024 && index < units.length - 1) {
+    size /= 1024;
+    index += 1;
+  }
+  return `${size.toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+}
+
+function renderBags(payload) {
+  const root = $("#bags");
+  root.replaceChildren();
+  if (!payload.available) {
+    const row = document.createElement("div");
+    row.className = "row";
+    row.innerHTML = `<strong>Unavailable</strong><span class="muted">${payload.error}</span>`;
+    root.append(row);
+    return;
+  }
+
+  for (const bag of payload.bags) {
+    const topTopics = (bag.topics ?? [])
+      .slice()
+      .sort((left, right) => right.messages - left.messages)
+      .slice(0, 3)
+      .map((topic) => `${topic.name} (${topic.messages})`)
+      .join(" | ");
+    const row = document.createElement("div");
+    row.className = "row bag-row";
+    row.innerHTML = `
+      <div class="title"><strong>${bag.name}</strong><span>${bag.duration_sec ?? "?"}s</span></div>
+      <span class="muted">${bag.message_count} msgs · ${bag.topic_count} topics · ${formatBytes(bag.size_bytes)}</span>
+      <span class="muted">${topTopics || "no topics"}</span>
+    `;
+    root.append(row);
+  }
+}
+
 function render(payload) {
   state.latest = payload;
   text("#mission-name", payload.mission.name);
@@ -135,6 +178,11 @@ function activateTab(button) {
 async function refresh() {
   const response = await fetch("/api/status");
   render(await response.json());
+}
+
+async function refreshBags() {
+  const response = await fetch("/api/bags");
+  renderBags(await response.json());
 }
 
 async function setMode(mode) {
@@ -182,4 +230,5 @@ document.querySelectorAll("[data-tab-target]").forEach((button) => {
 });
 
 refresh();
+refreshBags();
 connectLive();

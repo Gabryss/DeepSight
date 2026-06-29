@@ -50,5 +50,6 @@ System and robot dependencies:
 - Add allowlisted remote actions under `[[commands]]`.
 - Set `background = true` for long-running launch or bag commands.
 - Add battery commands per robot with `battery_command`.
+- Set `[mission].bag_root` to a ROS bag directory to populate the dashboard bag inventory.
 - Extend `src/deepsight/ros.py` for actions, lifecycle nodes, parameters, or costmap summaries.
 - Add authenticated reverse proxying before exposing the dashboard beyond localhost.
