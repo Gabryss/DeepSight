@@ -37,6 +37,44 @@ def _topic_summary(info: dict[str, Any]) -> list[dict[str, object]]:
     return topics
 
 
+def _has_type(topics: list[dict[str, object]], type_name: str) -> bool:
+    return any(topic.get("type") == type_name for topic in topics)
+
+
+def _has_topic_fragment(topics: list[dict[str, object]], *fragments: str) -> bool:
+    return any(
+        any(fragment in str(topic.get("name", "")).lower() for fragment in fragments)
+        for topic in topics
+    )
+
+
+def _capabilities(topics: list[dict[str, object]]) -> dict[str, object]:
+    available = {
+        "point_cloud": _has_type(topics, "sensor_msgs/msg/PointCloud2"),
+        "imu": _has_type(topics, "sensor_msgs/msg/Imu"),
+        "tf": _has_topic_fragment(topics, "/tf"),
+        "camera": _has_type(topics, "sensor_msgs/msg/Image") or _has_type(topics, "sensor_msgs/msg/CompressedImage"),
+        "costmap": _has_topic_fragment(topics, "costmap"),
+        "diagnostics": _has_topic_fragment(topics, "diagnostics"),
+        "battery": _has_topic_fragment(topics, "battery"),
+        "network": _has_topic_fragment(topics, "network", "wifi", "rssi", "bandwidth"),
+        "cmd_vel": _has_topic_fragment(topics, "cmd_vel"),
+    }
+    return {
+        "available": available,
+        "visualizable": [
+            name
+            for name, is_available in available.items()
+            if is_available and name in {"point_cloud", "tf", "imu", "cmd_vel"}
+        ],
+        "missing_for_full_monitoring": [
+            name
+            for name in ("camera", "costmap", "diagnostics", "battery", "network")
+            if not available[name]
+        ],
+    }
+
+
 def inspect_bag(path: Path) -> dict[str, object] | None:
     metadata_path = path / "metadata.yaml"
     if not metadata_path.exists():
@@ -48,6 +86,7 @@ def inspect_bag(path: Path) -> dict[str, object] | None:
     info = metadata.get("rosbag2_bagfile_information") or {}
     relative_files = info.get("relative_file_paths") or []
     topics = _topic_summary(info)
+    capabilities = _capabilities(topics)
     return {
         "name": path.name,
         "path": str(path),
@@ -57,6 +96,7 @@ def inspect_bag(path: Path) -> dict[str, object] | None:
         "message_count": info.get("message_count", 0),
         "topic_count": len(topics),
         "topics": topics,
+        "capabilities": capabilities,
         "size_bytes": _bag_size_bytes(path, relative_files),
     }
 

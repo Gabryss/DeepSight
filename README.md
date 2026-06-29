@@ -45,6 +45,7 @@ The browser can only run configured command IDs. It cannot submit arbitrary shel
 
 - [Architecture](docs/architecture.md)
 - [Underground mission tool checklist](docs/mission-tools.md)
+- [Mine Nider trial bag analysis](docs/trial-bag-analysis.md)
 
 ## Development
 

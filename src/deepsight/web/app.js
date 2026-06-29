@@ -81,6 +81,50 @@ function renderRos(ros) {
   }
 }
 
+function graphRow(label, percent, value, bad = false) {
+  const row = document.createElement("div");
+  row.className = "graph-row";
+  row.innerHTML = `
+    <span>${label}</span>
+    <div class="bar ${bad ? "bad" : ""}"><i style="--value: ${Math.max(0, Math.min(100, percent))}%"></i></div>
+    <strong>${value}</strong>
+  `;
+  return row;
+}
+
+function renderNetwork(payload) {
+  const connectivity = $("#network-connectivity");
+  const bandwidth = $("#network-bandwidth");
+  connectivity.replaceChildren();
+  bandwidth.replaceChildren();
+
+  const robots = payload.robots ?? [];
+  const online = robots.filter((robot) => robot.online).length;
+  text("#network-online", `${online}/${robots.length}`);
+  text("#network-mode", payload.middleware_mode.toUpperCase());
+  text("#network-loss", robots.length ? `${Math.round(((robots.length - online) / robots.length) * 100)}%` : "n/a");
+
+  for (const robot of robots) {
+    const latency = typeof robot.latency_ms === "number" ? robot.latency_ms : null;
+    const score = robot.online ? Math.max(8, 100 - Math.min(100, latency ?? 50)) : 0;
+    connectivity.append(graphRow(robot.label, score, robot.online ? `${latency?.toFixed(0) ?? "?"} ms` : "down", !robot.online));
+  }
+
+  for (const sample of payload.ros?.bandwidth ?? []) {
+    const match = String(sample.sample ?? "").match(/([0-9.]+)\s*(KB|MB|B)\/s/i);
+    let value = match ? Number.parseFloat(match[1]) : 0;
+    if (match?.[2]?.toUpperCase() === "MB") {
+      value *= 1024;
+    }
+    const percent = Math.min(100, value / 20);
+    bandwidth.append(graphRow(sample.topic, percent, sample.sample || "no sample", !sample.ok));
+  }
+
+  if (!bandwidth.children.length) {
+    bandwidth.append(graphRow("ros2 topic bw", 0, "no samples", true));
+  }
+}
+
 function renderTools(groups) {
   const root = $("#tools");
   root.replaceChildren();
@@ -139,6 +183,7 @@ function renderBags(payload) {
       <div class="title"><strong>${bag.name}</strong><span>${bag.duration_sec ?? "?"}s</span></div>
       <span class="muted">${bag.message_count} msgs · ${bag.topic_count} topics · ${formatBytes(bag.size_bytes)}</span>
       <span class="muted">${topTopics || "no topics"}</span>
+      <span class="muted">visual: ${(bag.capabilities?.visualizable ?? []).join(", ") || "none"} · missing: ${(bag.capabilities?.missing_for_full_monitoring ?? []).join(", ") || "none"}</span>
     `;
     root.append(row);
   }
@@ -156,6 +201,7 @@ function render(payload) {
   renderBatteries(payload.batteries);
   renderCommands(payload.commands);
   renderRos(payload.ros);
+  renderNetwork(payload);
   renderTools(payload.tools);
 }
 
@@ -165,12 +211,15 @@ function activateTab(button) {
   if (!target) {
     return;
   }
-  const group = button.closest("nav");
+  const group = button.closest(".stage-tabs, .inspector-tabs, .bottom-tabs");
   const scope = target.parentElement;
+  if (!group || !scope) {
+    return;
+  }
   group.querySelectorAll(".tab-button").forEach((tab) => {
     tab.classList.toggle("active", tab === button);
   });
-  scope.querySelectorAll(".tab-panel, .inspector-panel").forEach((panel) => {
+  scope.querySelectorAll(".tab-panel, .inspector-panel, .console-panel").forEach((panel) => {
     panel.classList.toggle("active", panel === target);
   });
 }
@@ -196,7 +245,7 @@ async function setMode(mode) {
 
 async function runCommand(commandId, button) {
   button.disabled = true;
-  const output = $("#command-output");
+  const output = $("#console-log");
   output.textContent = "running...";
   try {
     const response = await fetch("/api/commands/run", {

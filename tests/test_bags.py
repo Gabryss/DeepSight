@@ -35,6 +35,8 @@ def test_bag_inventory_reads_rosbag_metadata(tmp_path):
     assert payload["bags"][0]["duration_sec"] == 2.5
     assert payload["bags"][0]["message_count"] == 12
     assert payload["bags"][0]["topics"][0]["name"] == "/cloud"
+    assert payload["bags"][0]["capabilities"]["available"]["point_cloud"] is True
+    assert "camera" in payload["bags"][0]["capabilities"]["missing_for_full_monitoring"]
     assert payload["bags"][0]["size_bytes"] == 3
 
 

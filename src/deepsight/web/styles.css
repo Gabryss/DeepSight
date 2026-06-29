@@ -82,7 +82,7 @@ pre {
 .hud-shell {
   display: grid;
   grid-template-columns: 194px minmax(0, 1fr) 300px;
-  grid-template-rows: minmax(0, 1fr) 110px;
+  grid-template-rows: minmax(0, 1fr) 132px;
   gap: 0;
   width: 100vw;
   height: 100vh;
@@ -281,6 +281,10 @@ pre {
   display: block;
 }
 
+.network-panel.active {
+  display: grid;
+}
+
 .viewport::before {
   content: "";
   position: absolute;
@@ -384,6 +388,81 @@ pre {
   color: rgba(255, 255, 255, .48);
 }
 
+.network-panel {
+  grid-template-columns: 1fr 1fr minmax(220px, .8fr);
+  gap: 14px;
+  padding: 20px;
+}
+
+.network-card {
+  min-width: 0;
+  min-height: 0;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  background: rgba(0, 0, 0, .38);
+}
+
+.network-card h2 {
+  margin-bottom: 12px;
+  color: rgba(255, 255, 255, .75);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.graph-stack {
+  display: grid;
+  gap: 9px;
+}
+
+.graph-row {
+  display: grid;
+  grid-template-columns: minmax(70px, 140px) minmax(0, 1fr) 52px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.graph-row span {
+  overflow: hidden;
+  color: rgba(255, 255, 255, .64);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar {
+  height: 9px;
+  border: 1px solid rgba(255, 255, 255, .16);
+  background: rgba(255, 255, 255, .05);
+}
+
+.bar i {
+  display: block;
+  width: var(--value, 0%);
+  height: 100%;
+  background: rgba(255, 255, 255, .76);
+}
+
+.bar.bad i {
+  background: var(--bad);
+}
+
+.spark-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.spark-grid div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, .12);
+}
+
+.spark-grid span {
+  color: var(--muted);
+}
+
 .play-indicator {
   position: absolute;
   left: 50%;
@@ -476,18 +555,38 @@ pre {
 .bottom-console {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: minmax(260px, 520px) 1fr;
-  gap: 16px;
+  grid-template-columns: 170px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 14px;
   min-height: 0;
-  padding: 10px 20px 8px;
+  overflow: hidden;
+  padding: 10px 20px 12px;
   border-top: 1px solid rgba(255, 43, 29, .35);
 }
 
-.command-area {
+.bottom-tabs {
+  display: grid;
+  align-content: start;
+  gap: 6px;
   min-width: 0;
 }
 
-.command-area h2 {
+.bottom-tabs .tab-button {
+  width: 100%;
+}
+
+.console-panel {
+  display: none;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.console-panel.active {
+  display: block;
+}
+
+.console-panel h2 {
   margin-bottom: 7px;
   color: rgba(255, 255, 255, .55);
   font-size: 11px;
@@ -503,6 +602,11 @@ pre {
   padding: 3px 0;
   border-bottom: 1px solid rgba(255, 255, 255, .08);
   color: rgba(255, 255, 255, .64);
+}
+
+.bottom-console .command-list {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  align-content: start;
 }
 
 .robot .title,
@@ -654,6 +758,7 @@ pre {
 
   .bottom-console {
     grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(110px, 1fr);
   }
 }
 
@@ -668,5 +773,9 @@ pre {
 
   .feed-label {
     min-width: 0;
+  }
+
+  .network-panel {
+    grid-template-columns: 1fr;
   }
 }

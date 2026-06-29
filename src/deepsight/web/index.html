@@ -44,6 +44,7 @@
             <button class="tab-button" data-tab-target="feed-map" type="button">Map</button>
             <button class="tab-button" data-tab-target="feed-camera" type="button">Camera</button>
             <button class="tab-button" data-tab-target="feed-costmap" type="button">Costmap</button>
+            <button class="tab-button" data-tab-target="feed-network" type="button">Network</button>
           </nav>
           <div class="stage-actions">
             <div class="segmented" aria-label="Middleware mode">
@@ -87,6 +88,24 @@
           <div id="feed-costmap" class="tab-panel placeholder-panel">
             <strong>Costmap</strong>
             <span>navigation costmap and goal overlay</span>
+          </div>
+          <div id="feed-network" class="tab-panel network-panel">
+            <div class="network-card">
+              <h2>Connectivity</h2>
+              <div id="network-connectivity" class="graph-stack"></div>
+            </div>
+            <div class="network-card">
+              <h2>Bandwidth</h2>
+              <div id="network-bandwidth" class="graph-stack"></div>
+            </div>
+            <div class="network-card">
+              <h2>Link State</h2>
+              <div class="spark-grid">
+                <div><span>packet loss</span><strong id="network-loss">n/a</strong></div>
+                <div><span>online robots</span><strong id="network-online">0/0</strong></div>
+                <div><span>middleware</span><strong id="network-mode">DDS</strong></div>
+              </div>
+            </div>
           </div>
           <div class="feed-frame">
             <span class="feed-label">SOURCE: live stream</span>
@@ -157,11 +176,15 @@
       </aside>
 
       <section class="bottom-console" aria-label="Command console">
-        <div class="command-area">
+        <div class="bottom-tabs">
+          <button class="tab-button active" data-tab-target="console-commands" type="button">Commands</button>
+          <button class="tab-button" data-tab-target="console-log" type="button">Output</button>
+        </div>
+        <div id="console-commands" class="console-panel active">
           <h2>Remote Commands</h2>
           <div id="commands" class="command-list"></div>
         </div>
-        <pre id="command-output" class="output">\&gt;</pre>
+        <pre id="console-log" class="console-panel output">\&gt;</pre>
       </section>
     </main>
 
