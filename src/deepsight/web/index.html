@@ -7,102 +7,119 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <header class="topbar">
-      <div class="brand">
-        <img src="/mark.svg" alt="" class="mark" />
-        <div>
-          <h1>DeepSight</h1>
-          <p id="mission-name">Local mission dashboard</p>
-        </div>
-      </div>
-      <div class="toolbar">
-        <div class="segmented" aria-label="Middleware mode">
-          <button id="mode-dds" class="active" type="button">DDS</button>
-          <button id="mode-zenoh" type="button">Zenoh</button>
-        </div>
-        <button id="refresh" class="icon-button" type="button" title="Refresh">↻</button>
-      </div>
-    </header>
+    <div class="scanline"></div>
+    <main class="hud-shell">
+      <aside class="left-rail" aria-label="Data sources">
+        <section class="identity">
+          <span class="eyebrow">Recovered</span>
+          <strong>Data Source</strong>
+          <span id="mission-name">Local mission dashboard</span>
+        </section>
 
-    <main class="layout">
-      <section class="status-strip" aria-label="Mission status">
-        <div>
-          <span class="label">Robots</span>
-          <strong id="robot-count">0/0</strong>
+        <section class="rail-block">
+          <h2>Links</h2>
+          <div id="robots" class="micro-list"></div>
+        </section>
+
+        <section class="rail-block">
+          <h2>Battery</h2>
+          <div id="batteries" class="micro-list"></div>
+        </section>
+
+        <section class="rail-block code-card">
+          <span>IDXC 01</span>
+          <pre id="tf-tree" class="mini-pre">awaiting tf tree</pre>
+        </section>
+      </aside>
+
+      <section class="center-stage" aria-label="Primary mission view">
+        <header class="stage-top">
+          <span>compiling codex ..... </span>
+          <div class="stage-actions">
+            <div class="segmented" aria-label="Middleware mode">
+              <button id="mode-dds" class="active" type="button">DDS</button>
+              <button id="mode-zenoh" type="button">ZENOH</button>
+            </div>
+            <button id="refresh" class="icon-button" type="button" title="Refresh">↻</button>
+          </div>
+        </header>
+
+        <div class="viewport">
+          <div class="viewport-grid"></div>
+          <div class="point-field" aria-hidden="true">
+            <span style="--x: 12%; --y: 31%"></span>
+            <span style="--x: 20%; --y: 62%"></span>
+            <span style="--x: 31%; --y: 43%"></span>
+            <span style="--x: 43%; --y: 68%"></span>
+            <span style="--x: 58%; --y: 38%"></span>
+            <span style="--x: 72%; --y: 56%"></span>
+            <span style="--x: 84%; --y: 30%"></span>
+            <span style="--x: 88%; --y: 74%"></span>
+          </div>
+          <div class="feed-frame">
+            <span class="feed-label">SOURCE: live stream</span>
+            <div class="feed-copy">
+              <strong>DEEPSIGHT</strong>
+              <span>UNDERGROUND OPERATIONS INTERFACE</span>
+            </div>
+          </div>
+          <button class="play-indicator" type="button" title="Primary feed">▶Ⅱ</button>
         </div>
-        <div>
-          <span class="label">ROS</span>
-          <strong id="ros-state">Unknown</strong>
-        </div>
-        <div>
-          <span class="label">Topics</span>
-          <strong id="topic-count">0</strong>
-        </div>
-        <div>
-          <span class="label">Mode</span>
-          <strong id="mode-state">DDS</strong>
-        </div>
+
+        <footer class="stage-bottom">
+          <div>
+            <span class="muted">features = extract_features(frame)</span>
+            <span class="muted">hypothesis = classify(features)</span>
+            <span class="muted">print(hypothesis)</span>
+          </div>
+          <div>
+            <span>identified:</span>
+            <strong id="ros-state">Unknown</strong>
+            <span>topics:</span>
+            <strong id="topic-count">0</strong>
+          </div>
+          <div>
+            <span>robots:</span>
+            <strong id="robot-count">0/0</strong>
+            <span>mode:</span>
+            <strong id="mode-state">DDS</strong>
+          </div>
+        </footer>
       </section>
 
-      <section class="grid">
-        <article class="panel wide">
-          <div class="panel-head">
-            <h2>Robot Links</h2>
-          </div>
-          <div id="robots" class="robot-grid"></div>
-        </article>
+      <aside class="right-rail" aria-label="Mission telemetry">
+        <div class="tick-stack" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
 
-        <article class="panel">
-          <div class="panel-head">
-            <h2>Battery</h2>
-          </div>
-          <div id="batteries" class="list"></div>
-        </article>
+        <section class="rail-block compact">
+          <h2>Bandwidth</h2>
+          <div id="bandwidth" class="micro-list"></div>
+        </section>
 
-        <article class="panel">
-          <div class="panel-head">
-            <h2>Commands</h2>
-          </div>
-          <div id="commands" class="command-list"></div>
-          <pre id="command-output" class="output"></pre>
-        </article>
+        <section class="rail-block compact">
+          <h2>Nodes</h2>
+          <div id="nodes" class="chips"></div>
+        </section>
 
-        <article class="panel wide">
-          <div class="panel-head">
-            <h2>ROS Graph</h2>
-          </div>
-          <div class="ros-columns">
-            <div>
-              <h3>Nodes</h3>
-              <div id="nodes" class="chips"></div>
-            </div>
-            <div>
-              <h3>Topics</h3>
-              <div id="topics" class="chips"></div>
-            </div>
-          </div>
-        </article>
+        <section class="rail-block compact">
+          <h2>Topics</h2>
+          <div id="topics" class="chips"></div>
+        </section>
 
-        <article class="panel">
-          <div class="panel-head">
-            <h2>Bandwidth</h2>
-          </div>
-          <div id="bandwidth" class="list"></div>
-        </article>
-
-        <article class="panel">
-          <div class="panel-head">
-            <h2>Required Tools</h2>
-          </div>
+        <section class="rail-block compact">
+          <h2>Tools</h2>
           <div id="tools" class="tool-list"></div>
-        </article>
+        </section>
+      </aside>
 
-        <article class="panel full">
-          <div class="panel-head">
-            <h2>TF Tree</h2>
-          </div>
-          <pre id="tf-tree" class="tf-output"></pre>
-        </article>
+      <section class="bottom-console" aria-label="Command console">
+        <div class="command-area">
+          <h2>Remote Commands</h2>
+          <div id="commands" class="command-list"></div>
+        </div>
+        <pre id="command-output" class="output">\&gt;</pre>
       </section>
     </main>
 
