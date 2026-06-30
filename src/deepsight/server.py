@@ -16,6 +16,7 @@ from deepsight.postprocessing import BagPlayback, start_bag_playback, stop_bag_p
 from deepsight.ros import ros_snapshot
 from deepsight.runner import command_available, find_command, run_shell_command_async, start_background_command_async
 from deepsight.tools import MISSION_TOOLS, mission_tools_payload
+from deepsight.visual import visual_topics
 
 
 class CommandRequest(BaseModel):
@@ -113,6 +114,10 @@ def create_app() -> FastAPI:
     @app.get("/api/bags")
     async def bags() -> dict[str, object]:
         return await asyncio.to_thread(bag_inventory, config)
+
+    @app.get("/api/visual/topics")
+    async def visual_topic_list() -> dict[str, object]:
+        return await asyncio.to_thread(visual_topics, config)
 
     @app.get("/api/post-processing/status")
     async def post_processing_status() -> dict[str, object]:

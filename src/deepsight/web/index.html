@@ -74,17 +74,55 @@
               <span>live stream and operator annotations</span>
             </div>
           </div>
-          <div id="feed-cloud" class="tab-panel placeholder-panel">
-            <strong>Point Cloud</strong>
-            <span>incoming point cloud viewport</span>
+          <div id="feed-cloud" class="tab-panel visual-panel">
+            <div class="visual-toolbar">
+              <label>
+                <span>topic</span>
+                <select id="cloud-topic-select"></select>
+              </label>
+              <label>
+                <span>budget</span>
+                <select id="cloud-point-budget">
+                  <option value="25000">25k</option>
+                  <option value="50000" selected>50k</option>
+                  <option value="100000">100k</option>
+                  <option value="200000">200k</option>
+                </select>
+              </label>
+              <button id="cloud-reset" type="button">Reset</button>
+            </div>
+            <canvas id="cloud-canvas" aria-label="Point cloud 3D viewport"></canvas>
+            <div class="visual-hud">
+              <span id="cloud-status">awaiting topic</span>
+              <span id="cloud-stats">0 pts · 0 fps</span>
+            </div>
           </div>
           <div id="feed-map" class="tab-panel placeholder-panel">
             <strong>Map</strong>
             <span>local and global map summary</span>
           </div>
-          <div id="feed-camera" class="tab-panel placeholder-panel">
-            <strong>Camera</strong>
-            <span>front camera feed</span>
+          <div id="feed-camera" class="tab-panel visual-panel">
+            <div class="visual-toolbar">
+              <label>
+                <span>topic</span>
+                <select id="camera-topic-select"></select>
+              </label>
+              <label>
+                <span>fps cap</span>
+                <select id="camera-fps-cap">
+                  <option value="5">5</option>
+                  <option value="10" selected>10</option>
+                  <option value="15">15</option>
+                  <option value="30">30</option>
+                </select>
+              </label>
+              <button id="camera-pause" type="button">Pause</button>
+            </div>
+            <canvas id="camera-canvas" aria-label="Camera feed viewport"></canvas>
+            <div class="visual-hud">
+              <span id="camera-status">awaiting topic</span>
+              <span id="camera-stats">0 fps · 0 dropped</span>
+            </div>
           </div>
           <div id="feed-costmap" class="tab-panel placeholder-panel">
             <strong>Costmap</strong>

@@ -40,6 +40,7 @@ The browser can only run configured command IDs. It cannot submit arbitrary shel
 - Battery probe hooks per robot.
 - DDS/Zenoh mode indicator for mission coordination.
 - Allowlisted remote commands for rover restart, launch, bagging, and recovery.
+- Point cloud and camera visualization tabs with topic selectors, render budgets, and performance HUDs.
 - Post-processing tab for selecting a configured ROS bag, filtering topics, and starting/stopping `ros2 bag play`.
 - Playback state, progress, and log output for the active post-processing bag.
 - Required underground mission tool checklist with local availability status.
@@ -61,3 +62,9 @@ pytest
 The backend uses ROS 2 CLI commands rather than ROS Python bindings, so tests and the local UI can run on machines without a sourced ROS environment. ROS-specific panels show missing status until `ros2` and the configured setup file are available.
 
 Tests include service-level end-to-end coverage for bag inventory and post-processing playback, plus static guards for the primary dashboard feature surfaces.
+
+## Visualization Notes
+
+The Cloud tab uses a native WebGL renderer with a configurable point budget. The Camera tab uses a canvas renderer with an FPS cap. Topic selectors are populated from live ROS topic types when `ros2 topic list -t` is available and from configured bag metadata otherwise.
+
+The current renderers provide the optimized browser-side surface and topic-selection contract. The next integration step is to feed those surfaces from a dedicated ROS streaming bridge using binary PointCloud2 packets and compressed image frames, rather than JSON payloads.

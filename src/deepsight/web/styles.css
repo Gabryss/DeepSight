@@ -289,6 +289,77 @@ pre {
   display: grid;
 }
 
+.visual-panel.active {
+  display: grid;
+}
+
+.visual-panel {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 14px;
+  z-index: 1;
+}
+
+.visual-toolbar {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  min-width: 0;
+}
+
+.visual-toolbar label {
+  display: grid;
+  gap: 4px;
+  min-width: 120px;
+  color: rgba(255, 255, 255, .56);
+  text-transform: uppercase;
+}
+
+.visual-toolbar label:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.visual-toolbar select {
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  background: rgba(0, 0, 0, .68);
+  color: var(--ink);
+  font: inherit;
+}
+
+.visual-toolbar button {
+  height: 28px;
+  padding: 0 12px;
+}
+
+.visual-panel canvas {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 1px solid rgba(255, 255, 255, .14);
+  background:
+    linear-gradient(rgba(255, 255, 255, .06) 1px, transparent 1px) 0 0 / 100% 72px,
+    linear-gradient(90deg, rgba(255, 255, 255, .05) 1px, transparent 1px) 0 0 / 82px 100%,
+    rgba(0, 0, 0, .36);
+}
+
+.visual-hud {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: rgba(255, 255, 255, .64);
+  min-width: 0;
+}
+
+.visual-hud span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .viewport::before {
   content: "";
   position: absolute;

@@ -1,7 +1,11 @@
+import { CameraViewer } from "./camera-viewer.js";
+import { PointCloudViewer } from "./pointcloud-viewer.js";
+
 const state = {
   latest: null,
   bags: [],
   selectedBagPath: null,
+  visualTopics: { point_cloud: [], camera: [], costmap: [] },
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -242,6 +246,39 @@ function renderBags(payload) {
   renderPostProcessingControls();
 }
 
+function optionLabel(topic) {
+  return `${topic.name} [${topic.source}]`;
+}
+
+function fillTopicSelect(select, topics, emptyLabel) {
+  const selected = select.value;
+  select.replaceChildren();
+  if (!topics.length) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = emptyLabel;
+    select.append(option);
+    select.disabled = true;
+    return;
+  }
+  select.disabled = false;
+  for (const topic of topics) {
+    const option = document.createElement("option");
+    option.value = topic.name;
+    option.textContent = optionLabel(topic);
+    option.selected = topic.name === selected;
+    select.append(option);
+  }
+}
+
+function renderVisualTopics(payload) {
+  state.visualTopics = payload;
+  fillTopicSelect($("#cloud-topic-select"), payload.point_cloud ?? [], "no point cloud topics");
+  fillTopicSelect($("#camera-topic-select"), payload.camera ?? [], "no camera topics");
+  $("#cloud-status").textContent = (payload.point_cloud ?? []).length ? "preview cloud loaded" : "no PointCloud2 topic detected";
+  $("#camera-status").textContent = (payload.camera ?? []).length ? "preview camera active" : "no Image topic detected";
+}
+
 function render(payload) {
   state.latest = payload;
   text("#mission-name", payload.mission.name);
@@ -285,6 +322,11 @@ async function refresh() {
 async function refreshBags() {
   const response = await fetch("/api/bags");
   renderBags(await response.json());
+}
+
+async function refreshVisualTopics() {
+  const response = await fetch("/api/visual/topics");
+  renderVisualTopics(await response.json());
 }
 
 async function refreshPostProcessingStatus() {
@@ -383,12 +425,27 @@ $("#post-bag-select").addEventListener("change", (event) => {
 });
 $("#post-play").addEventListener("click", playPostProcessingBag);
 $("#post-stop").addEventListener("click", stopPostProcessingBag);
+const cloudViewer = new PointCloudViewer($("#cloud-canvas"), $("#cloud-stats"), $("#cloud-status"));
+const cameraViewer = new CameraViewer($("#camera-canvas"), $("#camera-stats"), $("#camera-status"));
+$("#cloud-point-budget").addEventListener("change", (event) => cloudViewer.setBudget(event.target.value));
+$("#cloud-reset").addEventListener("click", () => cloudViewer.reset());
+$("#cloud-topic-select").addEventListener("change", (event) => {
+  $("#cloud-status").textContent = event.target.value ? `selected ${event.target.value}` : "no PointCloud2 topic detected";
+});
+$("#camera-fps-cap").addEventListener("change", (event) => cameraViewer.setFpsCap(event.target.value));
+$("#camera-pause").addEventListener("click", (event) => {
+  event.target.textContent = cameraViewer.togglePause() ? "Resume" : "Pause";
+});
+$("#camera-topic-select").addEventListener("change", (event) => {
+  $("#camera-status").textContent = event.target.value ? `selected ${event.target.value}` : "no Image topic detected";
+});
 document.querySelectorAll("[data-tab-target]").forEach((button) => {
   button.addEventListener("click", () => activateTab(button));
 });
 
 refresh();
 refreshBags();
+refreshVisualTopics();
 refreshPostProcessingStatus();
 setInterval(refreshPostProcessingStatus, 2000);
 connectLive();
