@@ -488,6 +488,32 @@ pre {
   height: 30px;
 }
 
+.post-progress {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.post-progress div {
+  height: 10px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  background: rgba(255, 255, 255, .05);
+}
+
+.post-progress i {
+  display: block;
+  width: 0%;
+  height: 100%;
+  background: rgba(255, 255, 255, .76);
+}
+
+.post-progress span {
+  color: rgba(255, 255, 255, .62);
+  text-align: right;
+}
+
 .post-status {
   min-height: 84px;
   overflow: auto;

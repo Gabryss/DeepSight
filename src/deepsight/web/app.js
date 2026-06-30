@@ -290,12 +290,21 @@ async function refreshBags() {
 async function refreshPostProcessingStatus() {
   const response = await fetch("/api/post-processing/status");
   const status = await response.json();
+  const progress = Math.max(0, Math.min(100, status.progress_percent ?? 0));
+  $("#post-progress-fill").style.width = `${progress}%`;
+  $("#post-progress-label").textContent = `${progress.toFixed(0)}%`;
+  $("#post-play").disabled = Boolean(status.running);
+  $("#post-stop").disabled = !status.running;
   $("#post-status").textContent = [
-    status.running ? `running pid ${status.pid}` : "idle",
+    `state: ${status.state ?? (status.running ? "running" : "idle")}`,
+    status.running ? `pid: ${status.pid}` : "",
     status.bag_path,
     status.topics?.length ? `topics: ${status.topics.join(", ")}` : "topics: all",
     `rate: ${status.rate ?? 1}`,
     `loop: ${status.loop ? "yes" : "no"}`,
+    status.duration_sec ? `duration: ${status.duration_sec}s` : "",
+    status.returncode != null ? `returncode: ${status.returncode}` : "",
+    status.log_tail ? `\nlog:\n${status.log_tail}` : "",
   ].filter(Boolean).join("\n");
 }
 
@@ -381,4 +390,5 @@ document.querySelectorAll("[data-tab-target]").forEach((button) => {
 refresh();
 refreshBags();
 refreshPostProcessingStatus();
+setInterval(refreshPostProcessingStatus, 2000);
 connectLive();
