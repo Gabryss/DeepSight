@@ -303,26 +303,87 @@ export class PointCloudViewer {
     this.context2d.fillRect(0, 0, this.canvas.width, this.canvas.height);
     if (!this.points.length) return;
 
-    const spanX = Math.max(0.001, this.bounds.maxX - this.bounds.minX);
-    const spanY = Math.max(0.001, this.bounds.maxY - this.bounds.minY);
-    const scale = Math.min(this.canvas.width / spanX, this.canvas.height / spanY) * 0.88;
-    const centerX = (this.bounds.minX + this.bounds.maxX) / 2;
-    const centerY = (this.bounds.minY + this.bounds.maxY) / 2;
+    const projection = this.bestFallbackProjection();
+    const spanA = Math.max(0.001, projection.maxA - projection.minA);
+    const spanB = Math.max(0.001, projection.maxB - projection.minB);
+    const scale = Math.min(this.canvas.width / spanA, this.canvas.height / spanB) * 0.84;
+    const centerA = (projection.minA + projection.maxA) / 2;
+    const centerB = (projection.minB + projection.maxB) / 2;
     const stride = Math.max(1, Math.ceil(this.points.length / 50000));
+    let drawn = 0;
     for (let index = 0; index < this.points.length; index += stride) {
       const point = this.points[index];
-      const x = this.canvas.width / 2 + (point[0] - centerX) * scale;
-      const y = this.canvas.height / 2 - (point[1] - centerY) * scale;
+      const a = Math.max(projection.minA, Math.min(projection.maxA, point[projection.axisA]));
+      const b = Math.max(projection.minB, Math.min(projection.maxB, point[projection.axisB]));
+      const x = this.canvas.width / 2 + (a - centerA) * scale;
+      const y = this.canvas.height / 2 - (b - centerB) * scale;
+      if (x < -4 || y < -4 || x > this.canvas.width + 4 || y > this.canvas.height + 4) {
+        continue;
+      }
       const color = this.fallbackColor(point);
       this.context2d.fillStyle = color;
-      this.context2d.fillRect(x, y, 2, 2);
+      this.context2d.fillRect(x - 1, y - 1, 3, 3);
+      drawn += 1;
     }
+    this.statsNode.textContent = `${this.pointCount.toLocaleString()} pts · 2D ${projection.label} · ${drawn.toLocaleString()} drawn`;
+  }
+
+  bestFallbackProjection() {
+    const axes = [0, 1, 2].map((axis) => this.robustAxisBounds(axis));
+    const candidates = [
+      { axisA: 0, axisB: 1, label: "x/y" },
+      { axisA: 0, axisB: 2, label: "x/z" },
+      { axisA: 1, axisB: 2, label: "y/z" },
+    ];
+    let best = candidates[0];
+    let bestArea = -Infinity;
+    for (const candidate of candidates) {
+      const boundsA = axes[candidate.axisA];
+      const boundsB = axes[candidate.axisB];
+      const area = Math.max(0.001, boundsA.max - boundsA.min) * Math.max(0.001, boundsB.max - boundsB.min);
+      if (area > bestArea) {
+        bestArea = area;
+        best = candidate;
+      }
+    }
+    const boundsA = axes[best.axisA];
+    const boundsB = axes[best.axisB];
+    return {
+      ...best,
+      minA: boundsA.min,
+      maxA: boundsA.max,
+      minB: boundsB.min,
+      maxB: boundsB.max,
+    };
+  }
+
+  robustAxisBounds(axis) {
+    const stride = Math.max(1, Math.ceil(this.points.length / 10000));
+    const values = [];
+    for (let index = 0; index < this.points.length; index += stride) {
+      const value = this.points[index][axis];
+      if (Number.isFinite(value)) {
+        values.push(value);
+      }
+    }
+    if (!values.length) {
+      return { min: -1, max: 1 };
+    }
+    values.sort((left, right) => left - right);
+    const low = values[Math.floor(values.length * 0.01)];
+    const high = values[Math.min(values.length - 1, Math.ceil(values.length * 0.99))];
+    if (Math.abs(high - low) < 0.001) {
+      const center = (high + low) / 2;
+      return { min: center - 1, max: center + 1 };
+    }
+    const padding = (high - low) * 0.04;
+    return { min: low - padding, max: high + padding };
   }
 
   fallbackColor(point) {
     const intensity = Math.max(0, Math.min(1, point[3] ?? 0.65));
     if (this.colorMode === 2) {
-      const value = Math.round(64 + intensity * 191);
+      const value = Math.round(150 + intensity * 105);
       return `rgb(${value},${value},${value})`;
     }
     const metric = this.colorMode === 1

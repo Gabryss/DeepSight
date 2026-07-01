@@ -88,3 +88,5 @@ def test_dashboard_loads_visual_renderers():
     pointcloud_js = (Path(__file__).parents[1] / "src" / "deepsight" / "web" / "pointcloud-viewer.js").read_text(encoding="utf-8")
     assert "2D fallback" in pointcloud_js
     assert "frameBounds" in pointcloud_js
+    assert "bestFallbackProjection" in pointcloud_js
+    assert "drawn" in pointcloud_js
