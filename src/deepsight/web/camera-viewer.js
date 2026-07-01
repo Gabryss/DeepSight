@@ -9,8 +9,7 @@ export class CameraViewer {
     this.frameCount = 0;
     this.dropped = 0;
     this.lastStatsAt = performance.now();
-    this.lastFrameAt = 0;
-    this.animation = requestAnimationFrame(this.render);
+    this.clear("no camera frame loaded");
   }
 
   setFpsCap(value) {
@@ -19,8 +18,16 @@ export class CameraViewer {
 
   togglePause() {
     this.paused = !this.paused;
-    this.statusNode.textContent = this.paused ? "paused" : "preview camera active";
+    this.statusNode.textContent = this.paused ? "paused" : "no camera frame loaded";
     return this.paused;
+  }
+
+  clear(message = "no camera frame loaded") {
+    this.resize();
+    this.context.fillStyle = "#020303";
+    this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.statsNode.textContent = "0 fps · 0 dropped";
+    this.statusNode.textContent = message;
   }
 
   resize() {
@@ -35,61 +42,4 @@ export class CameraViewer {
     }
   }
 
-  render = (now) => {
-    this.resize();
-    const minInterval = 1000 / this.fpsCap;
-    if (!this.paused && now - this.lastFrameAt >= minInterval) {
-      this.drawPreview(now / 1000);
-      this.frameCount += 1;
-      this.lastFrameAt = now;
-    } else if (!this.paused) {
-      this.dropped += 1;
-    }
-    if (now - this.lastStatsAt > 1000) {
-      this.statsNode.textContent = `${this.frameCount} fps · ${this.dropped} dropped`;
-      this.frameCount = 0;
-      this.dropped = 0;
-      this.lastStatsAt = now;
-    }
-    this.animation = requestAnimationFrame(this.render);
-  };
-
-  drawPreview(seconds) {
-    const width = this.canvas.width;
-    const height = this.canvas.height;
-    const ctx = this.context;
-    const gradient = ctx.createLinearGradient(0, 0, width, height);
-    gradient.addColorStop(0, "#050708");
-    gradient.addColorStop(0.55, "#151b21");
-    gradient.addColorStop(1, "#020303");
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, width, height);
-
-    const sweep = (Math.sin(seconds * 0.7) + 1) * 0.5;
-    ctx.fillStyle = "rgba(190, 210, 230, 0.10)";
-    ctx.beginPath();
-    ctx.moveTo(width * (0.15 + sweep * 0.12), height * 0.08);
-    ctx.lineTo(width * (0.45 + sweep * 0.1), height * 0.08);
-    ctx.lineTo(width * (0.33 + sweep * 0.15), height * 0.92);
-    ctx.lineTo(width * (0.08 + sweep * 0.1), height * 0.92);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
-    ctx.lineWidth = Math.max(1, width / 700);
-    for (let y = 0; y < height; y += Math.max(14, height / 28)) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-      ctx.stroke();
-    }
-
-    ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
-    for (let index = 0; index < 18; index += 1) {
-      const x = ((index * 89 + seconds * 18) % 1000) / 1000 * width;
-      const y = ((index * 157) % 1000) / 1000 * height;
-      ctx.fillRect(x, y, 2, 2);
-    }
-    this.statusNode.textContent = "preview camera active";
-  }
 }

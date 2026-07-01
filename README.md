@@ -41,6 +41,7 @@ The browser can only run configured command IDs. It cannot submit arbitrary shel
 - DDS/Zenoh mode indicator for mission coordination.
 - Allowlisted remote commands for rover restart, launch, bagging, and recovery.
 - Point cloud and camera visualization tabs with topic selectors, render budgets, and performance HUDs.
+- PointCloud2 sample loading from configured ROS bags for the Cloud tab.
 - Post-processing tab for selecting a configured ROS bag, filtering topics, and starting/stopping `ros2 bag play`.
 - Playback state, progress, and log output for the active post-processing bag.
 - Required underground mission tool checklist with local availability status.
@@ -65,6 +66,6 @@ Tests include service-level end-to-end coverage for bag inventory and post-proce
 
 ## Visualization Notes
 
-The Cloud tab uses a native WebGL renderer with a configurable point budget. The Camera tab uses a canvas renderer with an FPS cap. Topic selectors are populated from live ROS topic types when `ros2 topic list -t` is available and from configured bag metadata otherwise.
+The Cloud tab uses a native WebGL renderer with a configurable point budget. Select a configured bag in Post Processing, choose a PointCloud2 topic in the Cloud tab, then use Load to render an actual sample from the bag. The Camera tab reserves a canvas surface for real image frames and no longer displays synthetic imagery. Topic selectors are populated from live ROS topic types when `ros2 topic list -t` is available and from configured bag metadata otherwise.
 
-The current renderers provide the optimized browser-side surface and topic-selection contract. The next integration step is to feed those surfaces from a dedicated ROS streaming bridge using binary PointCloud2 packets and compressed image frames, rather than JSON payloads.
+The current camera renderer still provides the optimized browser-side surface and topic-selection contract. The next integration step is to feed live camera frames and live point cloud updates from a dedicated ROS streaming bridge using binary PointCloud2 packets and compressed image frames, rather than JSON payloads.

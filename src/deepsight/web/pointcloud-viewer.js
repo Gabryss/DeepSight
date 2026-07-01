@@ -26,12 +26,20 @@ export class PointCloudViewer {
 
   setBudget(value) {
     this.budget = Number.parseInt(value, 10) || 50000;
-    this.generatePreview();
   }
 
   reset() {
     this.rotation = 0;
-    this.generatePreview();
+  }
+
+  clear(message = "no cloud loaded") {
+    this.pointCount = 0;
+    if (this.gl && this.buffer) {
+      this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.buffer);
+      this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(), this.gl.DYNAMIC_DRAW);
+    }
+    this.statsNode.textContent = "0 pts · 0 fps";
+    this.setStatus(message);
   }
 
   initGl() {
@@ -63,7 +71,7 @@ export class PointCloudViewer {
     this.locations.transform = this.gl.getUniformLocation(this.program, "transform");
     this.gl.enable(this.gl.BLEND);
     this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
-    this.generatePreview();
+    this.clear("select a bag topic and load");
     this.start();
   }
 
@@ -88,26 +96,24 @@ export class PointCloudViewer {
     return program;
   }
 
-  generatePreview() {
+  loadPoints(points) {
     if (!this.gl) {
       return;
     }
-    const count = this.budget;
+    const count = Math.min(points.length, this.budget);
     const data = new Float32Array(count * 4);
     for (let index = 0; index < count; index += 1) {
-      const ring = index / count;
-      const angle = index * 0.071;
-      const radius = 0.12 + Math.sqrt(ring) * 1.7;
-      const tunnel = Math.sin(angle * 0.17) * 0.18;
-      data[index * 4] = Math.cos(angle) * radius * 0.34;
-      data[index * 4 + 1] = Math.sin(angle) * radius * 0.24 + tunnel;
-      data[index * 4 + 2] = (ring - 0.5) * 1.7;
-      data[index * 4 + 3] = 0.2 + (index % 97) / 120;
+      const point = points[index];
+      data[index * 4] = point[0];
+      data[index * 4 + 1] = point[1];
+      data[index * 4 + 2] = point[2];
+      data[index * 4 + 3] = point[3] ?? 0.65;
     }
     this.pointCount = count;
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.buffer);
     this.gl.bufferData(this.gl.ARRAY_BUFFER, data, this.gl.DYNAMIC_DRAW);
-    this.setStatus("preview cloud loaded");
+    this.setStatus("bag cloud loaded");
+    this.statsNode.textContent = `${this.pointCount.toLocaleString()} pts · loading`;
   }
 
   resize() {

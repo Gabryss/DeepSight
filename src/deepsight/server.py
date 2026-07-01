@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from deepsight.bags import bag_inventory
 from deepsight.config import AppConfig, load_config
 from deepsight.network import robot_batteries, robot_connectivity
+from deepsight.pointcloud import pointcloud_sample
 from deepsight.postprocessing import BagPlayback, start_bag_playback, stop_bag_playback
 from deepsight.ros import ros_snapshot
 from deepsight.runner import command_available, find_command, run_shell_command_async, start_background_command_async
@@ -32,6 +33,12 @@ class BagPlaybackRequest(BaseModel):
     topics: list[str] = Field(default_factory=list)
     rate: float = 1.0
     loop: bool = False
+
+
+class PointCloudSampleRequest(BaseModel):
+    bag_path: str
+    topic: str
+    max_points: int = Field(default=50_000, ge=100, le=200_000)
 
 
 def _tool_status(config: AppConfig) -> list[dict[str, object]]:
@@ -118,6 +125,10 @@ def create_app() -> FastAPI:
     @app.get("/api/visual/topics")
     async def visual_topic_list() -> dict[str, object]:
         return await asyncio.to_thread(visual_topics, config)
+
+    @app.post("/api/visual/pointcloud-sample")
+    async def visual_pointcloud_sample(request: PointCloudSampleRequest) -> dict[str, object]:
+        return await asyncio.to_thread(pointcloud_sample, config, request.bag_path, request.topic, request.max_points)
 
     @app.get("/api/post-processing/status")
     async def post_processing_status() -> dict[str, object]:

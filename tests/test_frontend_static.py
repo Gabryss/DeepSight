@@ -16,6 +16,7 @@ def test_dashboard_contains_primary_feature_surfaces():
         "feed-post-processing",
         "cloud-topic-select",
         "cloud-point-budget",
+        "cloud-load",
         "cloud-canvas",
         "cloud-stats",
         "camera-topic-select",
@@ -42,6 +43,7 @@ def test_server_exposes_core_api_routes():
         "/api/config",
         "/api/status",
         "/api/visual/topics",
+        "/api/visual/pointcloud-sample",
         "/api/bags",
         "/api/post-processing/status",
         "/api/post-processing/play",
@@ -57,3 +59,4 @@ def test_dashboard_loads_visual_renderers():
     assert 'import { PointCloudViewer } from "./pointcloud-viewer.js";' in app_js
     assert 'import { CameraViewer } from "./camera-viewer.js";' in app_js
     assert "/api/visual/topics" in app_js
+    assert "/api/visual/pointcloud-sample" in app_js
