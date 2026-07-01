@@ -4,7 +4,9 @@ export class PointCloudViewer {
     this.statsNode = statsNode;
     this.statusNode = statusNode;
     this.gl = canvas.getContext("webgl", { antialias: false, alpha: true, powerPreference: "high-performance" });
+    this.context2d = this.gl ? null : canvas.getContext("2d", { alpha: false });
     this.pointCount = 0;
+    this.points = [];
     this.budget = 200000;
     this.colorMode = 0;
     this.frameCount = 0;
@@ -19,6 +21,7 @@ export class PointCloudViewer {
     this.buffer = null;
     this.locations = {};
     this.bounds = { minZ: -1, maxZ: 1, maxDistance: 1 };
+    this.hasFramed = false;
     this.animation = null;
     this.installControls();
     if (this.gl) {
@@ -27,10 +30,11 @@ export class PointCloudViewer {
       } catch (error) {
         console.error("point cloud viewer failed to initialize", error);
         this.gl = null;
+        this.context2d = canvas.getContext("2d", { alpha: false });
         this.setStatus(`webgl init failed: ${error.message}`);
       }
     } else {
-      this.setStatus("webgl unavailable");
+      this.clear("webgl unavailable; using 2D fallback");
     }
   }
 
@@ -44,6 +48,7 @@ export class PointCloudViewer {
 
   setColorMode(mode) {
     this.colorMode = { distance: 0, height: 1, intensity: 2 }[mode] ?? 0;
+    this.drawFallback();
   }
 
   reset() {
@@ -51,13 +56,22 @@ export class PointCloudViewer {
     this.pitch = -0.9;
     this.distance = 14;
     this.target = [0, 0, 0];
+    this.hasFramed = false;
+    this.drawFallback();
   }
 
   clear(message = "no cloud loaded") {
     this.pointCount = 0;
+    this.points = [];
+    this.hasFramed = false;
     if (this.gl && this.buffer) {
       this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.buffer);
       this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(), this.gl.DYNAMIC_DRAW);
+    }
+    if (this.context2d) {
+      this.resizeCanvas();
+      this.context2d.fillStyle = "#020303";
+      this.context2d.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
     this.statsNode.textContent = "0 pts · 0 fps";
     this.setStatus(message);
@@ -82,6 +96,7 @@ export class PointCloudViewer {
         this.yaw += dx * 0.006;
         this.pitch = Math.max(-1.52, Math.min(1.52, this.pitch + dy * 0.006));
       }
+      this.drawFallback();
     });
     this.canvas.addEventListener("pointerup", () => {
       this.drag = null;
@@ -90,6 +105,7 @@ export class PointCloudViewer {
     this.canvas.addEventListener("wheel", (event) => {
       event.preventDefault();
       this.distance = Math.max(0.2, Math.min(250, this.distance * (1 + event.deltaY * 0.001)));
+      this.drawFallback();
     }, { passive: false });
     window.addEventListener("keydown", (event) => {
       if (document.activeElement === this.canvas) {
@@ -199,9 +215,13 @@ export class PointCloudViewer {
   }
 
   loadPoints(points, message = "cloud loaded") {
-    if (!this.gl) return;
     const count = Math.min(points.length, this.budget);
+    this.points = points.slice(0, count);
     const data = new Float32Array(count * 4);
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
     let minZ = Infinity;
     let maxZ = -Infinity;
     let maxDistance = 0;
@@ -215,23 +235,51 @@ export class PointCloudViewer {
       data[index * 4 + 1] = y;
       data[index * 4 + 2] = z;
       data[index * 4 + 3] = intensity;
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
       minZ = Math.min(minZ, z);
       maxZ = Math.max(maxZ, z);
       maxDistance = Math.max(maxDistance, Math.hypot(x, y, z));
     }
     this.bounds = {
+      minX: Number.isFinite(minX) ? minX : -1,
+      maxX: Number.isFinite(maxX) ? maxX : 1,
+      minY: Number.isFinite(minY) ? minY : -1,
+      maxY: Number.isFinite(maxY) ? maxY : 1,
       minZ: Number.isFinite(minZ) ? minZ : -1,
       maxZ: Number.isFinite(maxZ) ? maxZ : 1,
       maxDistance: Math.max(1, maxDistance),
     };
     this.pointCount = count;
-    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.buffer);
-    this.gl.bufferData(this.gl.ARRAY_BUFFER, data, this.gl.DYNAMIC_DRAW);
+    if (!this.hasFramed) {
+      this.frameBounds();
+      this.hasFramed = true;
+    }
+    if (this.gl) {
+      this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.buffer);
+      this.gl.bufferData(this.gl.ARRAY_BUFFER, data, this.gl.DYNAMIC_DRAW);
+    } else {
+      this.drawFallback();
+    }
     this.setStatus(message);
-    this.statsNode.textContent = `${this.pointCount.toLocaleString()} pts · loading`;
+    this.statsNode.textContent = `${this.pointCount.toLocaleString()} pts · ${this.gl ? "loading" : "2D fallback"}`;
   }
 
-  resize() {
+  frameBounds() {
+    const spanX = this.bounds.maxX - this.bounds.minX;
+    const spanY = this.bounds.maxY - this.bounds.minY;
+    const spanZ = this.bounds.maxZ - this.bounds.minZ;
+    this.target = [
+      (this.bounds.minX + this.bounds.maxX) / 2,
+      (this.bounds.minY + this.bounds.maxY) / 2,
+      (this.bounds.minZ + this.bounds.maxZ) / 2,
+    ];
+    this.distance = Math.max(2, Math.hypot(spanX, spanY, spanZ) * 1.8);
+  }
+
+  resizeCanvas() {
     const width = Math.max(1, this.canvas.clientWidth);
     const height = Math.max(1, this.canvas.clientHeight);
     const scale = window.devicePixelRatio || 1;
@@ -241,7 +289,50 @@ export class PointCloudViewer {
       this.canvas.width = nextWidth;
       this.canvas.height = nextHeight;
     }
+  }
+
+  resize() {
+    this.resizeCanvas();
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+  }
+
+  drawFallback() {
+    if (!this.context2d) return;
+    this.resizeCanvas();
+    this.context2d.fillStyle = "#020303";
+    this.context2d.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    if (!this.points.length) return;
+
+    const spanX = Math.max(0.001, this.bounds.maxX - this.bounds.minX);
+    const spanY = Math.max(0.001, this.bounds.maxY - this.bounds.minY);
+    const scale = Math.min(this.canvas.width / spanX, this.canvas.height / spanY) * 0.88;
+    const centerX = (this.bounds.minX + this.bounds.maxX) / 2;
+    const centerY = (this.bounds.minY + this.bounds.maxY) / 2;
+    const stride = Math.max(1, Math.ceil(this.points.length / 50000));
+    for (let index = 0; index < this.points.length; index += stride) {
+      const point = this.points[index];
+      const x = this.canvas.width / 2 + (point[0] - centerX) * scale;
+      const y = this.canvas.height / 2 - (point[1] - centerY) * scale;
+      const color = this.fallbackColor(point);
+      this.context2d.fillStyle = color;
+      this.context2d.fillRect(x, y, 2, 2);
+    }
+  }
+
+  fallbackColor(point) {
+    const intensity = Math.max(0, Math.min(1, point[3] ?? 0.65));
+    if (this.colorMode === 2) {
+      const value = Math.round(64 + intensity * 191);
+      return `rgb(${value},${value},${value})`;
+    }
+    const metric = this.colorMode === 1
+      ? (point[2] - this.bounds.minZ) / Math.max(0.001, this.bounds.maxZ - this.bounds.minZ)
+      : Math.hypot(point[0], point[1], point[2]) / Math.max(0.001, this.bounds.maxDistance);
+    const t = Math.max(0, Math.min(1, metric));
+    const r = Math.round(26 + t * 216);
+    const g = Math.round(166 + t * 68);
+    const b = Math.round(242 - t * 99);
+    return `rgb(${r},${g},${b})`;
   }
 
   viewProjectionMatrix() {
