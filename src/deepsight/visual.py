@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from deepsight.bags import bag_inventory
@@ -11,6 +12,15 @@ POINT_CLOUD_TYPES = {"sensor_msgs/msg/PointCloud2"}
 CAMERA_TYPES = {"sensor_msgs/msg/Image", "sensor_msgs/msg/CompressedImage"}
 CAMERA_INFO_TYPES = {"sensor_msgs/msg/CameraInfo"}
 COSTMAP_TYPES = {"nav_msgs/msg/OccupancyGrid"}
+GLOBAL_TOPIC_NAMES = {
+    "/clock",
+    "/parameter_events",
+    "/rosout",
+    "/rousout",
+    "/tf",
+    "/tf_static",
+    "/tf_statics",
+}
 
 
 @dataclass(frozen=True)
@@ -71,7 +81,7 @@ def visual_topics(config: AppConfig) -> dict[str, object]:
     camera = [topic.payload() for topic in values if topic.type in CAMERA_TYPES]
     camera_info = [topic.payload() for topic in values if topic.type in CAMERA_INFO_TYPES]
     costmap = [topic.payload() for topic in values if topic.type in COSTMAP_TYPES]
-    entities = sorted({entity_from_topic(topic.name) for topic in values if entity_from_topic(topic.name)})
+    entities = visible_entities_from_topics(topic.name for topic in values)
 
     return {
         "point_cloud": point_cloud,
@@ -84,5 +94,14 @@ def visual_topics(config: AppConfig) -> dict[str, object]:
 
 
 def entity_from_topic(topic_name: str) -> str:
+    if topic_name in GLOBAL_TOPIC_NAMES:
+        return ""
     parts = [part for part in topic_name.split("/") if part]
-    return parts[0] if parts else ""
+    if not parts or f"/{parts[0]}" in GLOBAL_TOPIC_NAMES:
+        return ""
+    return parts[0]
+
+
+def visible_entities_from_topics(topic_names: Iterable[object]) -> list[str]:
+    names = topic_names if isinstance(topic_names, list | tuple | set) else list(topic_names)
+    return sorted({entity for name in names if (entity := entity_from_topic(str(name)))})

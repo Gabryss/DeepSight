@@ -70,3 +70,21 @@ def test_visual_topics_merges_live_and_bag_topics(monkeypatch, tmp_path):
     assert payload["costmap"][0]["name"] == "/base/map"
     assert payload["entities"] == ["base", "leo05"]
     assert payload["available"] is True
+
+
+def test_visible_entities_ignore_global_ros_topics():
+    topics = [
+        "/tf",
+        "/tf_static",
+        "/tf_statics",
+        "/rosout",
+        "/rousout",
+        "/parameter_events",
+        "/clock",
+        "/leo05/livox/lidar",
+        "/leo05/battery_state",
+        "/base_station/status",
+    ]
+
+    assert visual.visible_entities_from_topics(topics) == ["base_station", "leo05"]
+    assert visual.entity_from_topic("/tf_static") == ""

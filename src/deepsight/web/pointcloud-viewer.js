@@ -260,11 +260,11 @@ export class PointCloudViewer {
     if (this.gl) {
       this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.buffer);
       this.gl.bufferData(this.gl.ARRAY_BUFFER, data, this.gl.DYNAMIC_DRAW);
+      this.statsNode.textContent = `${this.pointCount.toLocaleString()} pts · loading`;
     } else {
       this.drawFallback();
     }
     this.setStatus(message);
-    this.statsNode.textContent = `${this.pointCount.toLocaleString()} pts · ${this.gl ? "loading" : "2D fallback"}`;
   }
 
   frameBounds() {
@@ -299,9 +299,14 @@ export class PointCloudViewer {
   drawFallback() {
     if (!this.context2d) return;
     this.resizeCanvas();
+    this.context2d.globalAlpha = 1;
+    this.context2d.globalCompositeOperation = "source-over";
     this.context2d.fillStyle = "#020303";
     this.context2d.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    if (!this.points.length) return;
+    if (!this.points.length) {
+      this.statsNode.textContent = "0 pts · 2D fallback";
+      return;
+    }
 
     const projection = this.bestFallbackProjection();
     const spanA = Math.max(0.001, projection.maxA - projection.minA);
@@ -322,8 +327,13 @@ export class PointCloudViewer {
       }
       const color = this.fallbackColor(point);
       this.context2d.fillStyle = color;
-      this.context2d.fillRect(x - 1, y - 1, 3, 3);
+      this.context2d.fillRect(Math.round(x) - 2, Math.round(y) - 2, 5, 5);
       drawn += 1;
+    }
+    if (drawn === 0) {
+      this.context2d.fillStyle = "#f1f5f9";
+      this.context2d.font = `${Math.max(14, Math.round(this.canvas.height * 0.018))}px monospace`;
+      this.context2d.fillText("received points, but none projected into view", 18, 32);
     }
     this.statsNode.textContent = `${this.pointCount.toLocaleString()} pts · 2D ${projection.label} · ${drawn.toLocaleString()} drawn`;
   }
@@ -383,7 +393,7 @@ export class PointCloudViewer {
   fallbackColor(point) {
     const intensity = Math.max(0, Math.min(1, point[3] ?? 0.65));
     if (this.colorMode === 2) {
-      const value = Math.round(150 + intensity * 105);
+      const value = Math.round(210 + intensity * 45);
       return `rgb(${value},${value},${value})`;
     }
     const metric = this.colorMode === 1

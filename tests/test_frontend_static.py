@@ -89,9 +89,13 @@ def test_dashboard_loads_visual_renderers():
     assert "Could not load bag inventory" in app_js
     assert "setColorMode" in app_js
     assert "entityFromTopicName" in app_js
+    assert "visibleEntities" in app_js
+    assert "GLOBAL_TOPIC_NAMES" in app_js
+    assert "All visible" in app_js
 
     pointcloud_js = (Path(__file__).parents[1] / "src" / "deepsight" / "web" / "pointcloud-viewer.js").read_text(encoding="utf-8")
     assert "2D fallback" in pointcloud_js
     assert "frameBounds" in pointcloud_js
     assert "bestFallbackProjection" in pointcloud_js
     assert "drawn" in pointcloud_js
+    assert "none projected into view" in pointcloud_js

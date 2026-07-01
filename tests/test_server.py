@@ -34,13 +34,18 @@ def test_mission_snapshot_returns_status(monkeypatch, tmp_path):
     monkeypatch.setenv("DEEPSIGHT_CONFIG", str(config_path))
     monkeypatch.setattr(server, "robot_connectivity", lambda config: [{"id": "rover", "online": True}])
     monkeypatch.setattr(server, "robot_batteries", lambda config: [])
-    monkeypatch.setattr(server, "ros_snapshot", lambda config: {"available": False, "topics": [], "nodes": [], "bandwidth": []})
+    monkeypatch.setattr(
+        server,
+        "ros_snapshot",
+        lambda config: {"available": True, "topics": ["/tf", "/leo05/livox/lidar"], "nodes": [], "bandwidth": []},
+    )
 
     app = server.create_app()
     payload = server._mission_snapshot(app.state.config, "dds")
 
     assert payload["mission"]["name"] == "API Test"
     assert payload["robots"][0]["online"] is True
+    assert payload["visible_entities"] == ["leo05"]
     assert payload["commands"][0]["id"] == "noop"
 
 

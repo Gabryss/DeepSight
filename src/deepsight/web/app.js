@@ -12,6 +12,7 @@ const state = {
   mapSocket: null,
   costmapSocket: null,
   commandTarget: "all",
+  visibleEntities: [],
   topicDiscoveryIntervalMs: 30000,
   topicDiscoveryTimer: null,
 };
@@ -39,19 +40,26 @@ function chip(value) {
   return span;
 }
 
-function renderRobots(robots) {
+const GLOBAL_TOPIC_NAMES = new Set(["/clock", "/parameter_events", "/rosout", "/rousout", "/tf", "/tf_static", "/tf_statics"]);
+
+function renderRobots(entities) {
   const root = $("#robots");
   root.replaceChildren();
-  for (const robot of robots) {
+  for (const entity of entities) {
     const card = document.createElement("div");
     card.className = "robot";
-    const latency = robot.latency_ms == null ? "" : `${robot.latency_ms.toFixed(1)} ms`;
     card.innerHTML = `
-      <div class="title"><strong>${robot.label}</strong><span class="dot ${robot.online ? "ok" : ""}"></span></div>
-      <span class="muted">${robot.host}</span>
-      <span>${robot.online ? "online" : "offline"} ${latency}</span>
+      <div class="title"><strong>${entity}</strong><span class="dot ok"></span></div>
+      <span class="muted">ROS namespace</span>
+      <span>visible in topic graph</span>
     `;
     root.append(card);
+  }
+  if (!entities.length) {
+    const empty = document.createElement("div");
+    empty.className = "row";
+    empty.textContent = "No robot namespaces visible.";
+    root.append(empty);
   }
 }
 
@@ -76,10 +84,17 @@ function renderCommands(commands) {
   const targetSelect = $("#command-target-select");
   root.replaceChildren();
   if (!targetSelect.children.length) {
-    targetSelect.replaceChildren(new Option("All targets", "all"));
+    targetSelect.replaceChildren(new Option("All visible", "all"));
   }
+  const visible = new Set(state.visibleEntities);
   for (const command of commands) {
+    if (state.commandTarget === "all" && command.target && !visible.has(command.target)) {
+      continue;
+    }
     if (state.commandTarget !== "all" && command.target && command.target !== state.commandTarget) {
+      continue;
+    }
+    if (state.commandTarget !== "all" && !command.target) {
       continue;
     }
     const row = document.createElement("div");
@@ -136,15 +151,21 @@ function renderNetwork(payload) {
   bandwidth.replaceChildren();
 
   const robots = payload.robots ?? [];
+  const visibleEntities = payload.visible_entities ?? state.visibleEntities ?? [];
   const online = robots.filter((robot) => robot.online).length;
-  text("#network-online", `${online}/${robots.length}`);
+  text("#network-online", visibleEntities.length ? `${visibleEntities.length}/${visibleEntities.length}` : `${online}/${robots.length}`);
   text("#network-mode", payload.middleware_mode.toUpperCase());
-  text("#network-loss", robots.length ? `${Math.round(((robots.length - online) / robots.length) * 100)}%` : "n/a");
+  text("#network-loss", visibleEntities.length ? "0%" : robots.length ? `${Math.round(((robots.length - online) / robots.length) * 100)}%` : "n/a");
 
-  for (const robot of robots) {
-    const latency = typeof robot.latency_ms === "number" ? robot.latency_ms : null;
-    const score = robot.online ? Math.max(8, 100 - Math.min(100, latency ?? 50)) : 0;
-    connectivity.append(graphRow(robot.label, score, robot.online ? `${latency?.toFixed(0) ?? "?"} ms` : "down", !robot.online));
+  for (const entity of visibleEntities) {
+    connectivity.append(graphRow(entity, 100, "ROS graph", false));
+  }
+  if (!visibleEntities.length) {
+    for (const robot of robots) {
+      const latency = typeof robot.latency_ms === "number" ? robot.latency_ms : null;
+      const score = robot.online ? Math.max(8, 100 - Math.min(100, latency ?? 50)) : 0;
+      connectivity.append(graphRow(robot.label, score, robot.online ? `${latency?.toFixed(0) ?? "?"} ms` : "down", !robot.online));
+    }
   }
 
   for (const sample of payload.ros?.bandwidth ?? []) {
@@ -304,7 +325,10 @@ function optionLabel(topic) {
 }
 
 function entityFromTopicName(name) {
-  return String(name || "").split("/").filter(Boolean)[0] || "base";
+  const topic = String(name || "");
+  if (GLOBAL_TOPIC_NAMES.has(topic)) return "";
+  const entity = topic.split("/").filter(Boolean)[0] || "";
+  return GLOBAL_TOPIC_NAMES.has(`/${entity}`) ? "" : entity;
 }
 
 function fillTopicSelect(select, topics, emptyLabel, entity = "all") {
@@ -366,16 +390,16 @@ function renderVisualTopics(payload) {
 
 function render(payload) {
   state.latest = payload;
+  state.visibleEntities = payload.visible_entities ?? [];
   text("#mission-name", payload.mission.name);
   if ($("#ros-domain-id") && document.activeElement !== $("#ros-domain-id")) {
     $("#ros-domain-id").value = payload.mission.ros_domain_id ?? "";
   }
-  const online = payload.robots.filter((robot) => robot.online).length;
-  text("#robot-count", `${online}/${payload.robots.length}`);
+  text("#robot-count", `${state.visibleEntities.length}/${state.visibleEntities.length}`);
   text("#mode-state", payload.middleware_mode.toUpperCase());
   $("#mode-dds").classList.toggle("active", payload.middleware_mode === "dds");
   $("#mode-zenoh").classList.toggle("active", payload.middleware_mode === "zenoh");
-  renderRobots(payload.robots);
+  renderRobots(state.visibleEntities);
   renderBatteries(payload.batteries);
   renderCommandTargets(payload);
   renderRos(payload.ros);
@@ -385,12 +409,9 @@ function render(payload) {
 
 function renderCommandTargets(payload) {
   const select = $("#command-target-select");
-  const targets = new Map([["all", "All targets"]]);
-  for (const robot of payload.robots ?? []) {
-    targets.set(robot.id, robot.label);
-  }
-  for (const entity of state.visualTopics.entities ?? []) {
-    if (!targets.has(entity)) targets.set(entity, entity);
+  const targets = new Map([["all", "All visible"]]);
+  for (const entity of state.visibleEntities ?? []) {
+    targets.set(entity, entity);
   }
   const current = state.commandTarget;
   select.replaceChildren();

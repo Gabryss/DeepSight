@@ -18,7 +18,7 @@ from deepsight.postprocessing import BagPlayback, start_bag_playback, stop_bag_p
 from deepsight.ros import ros_snapshot
 from deepsight.runner import command_available, find_command, run_shell_command_async, start_background_command_async
 from deepsight.tools import MISSION_TOOLS, mission_tools_payload
-from deepsight.visual import visual_topics
+from deepsight.visual import visible_entities_from_topics, visual_topics
 
 
 class CommandRequest(BaseModel):
@@ -105,13 +105,16 @@ def _tool_status(config: AppConfig) -> list[dict[str, object]]:
 
 
 def _mission_snapshot(config: AppConfig, middleware_mode: str, ros_payload: dict[str, object] | None = None) -> dict[str, object]:
+    ros_data = ros_payload if ros_payload is not None else ros_snapshot(config)
+    visible_entities = visible_entities_from_topics(ros_data.get("topics", []))
     return {
         "mission": config.mission.model_dump(),
         "middleware_mode": middleware_mode,
         "tools": _tool_status(config),
         "robots": robot_connectivity(config),
+        "visible_entities": visible_entities,
         "batteries": robot_batteries(config),
-        "ros": ros_payload if ros_payload is not None else ros_snapshot(config),
+        "ros": ros_data,
         "commands": [command.model_dump(exclude={"command"}) for command in config.commands],
     }
 
