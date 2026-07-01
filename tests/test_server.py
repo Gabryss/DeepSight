@@ -101,6 +101,8 @@ async def test_config_endpoint_returns_public_config(monkeypatch, tmp_path):
     assert response.status_code == 200
     payload = response.json()
     assert payload["mission"]["name"] == "API Test"
+    assert payload["server"]["host"] == "127.0.0.1"
+    assert payload["server"]["port"] == 8766
     assert payload["commands"][0]["id"] == "noop"
     assert "command" not in payload["commands"][0]
 

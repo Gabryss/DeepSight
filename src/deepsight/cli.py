@@ -5,11 +5,13 @@ import os
 
 import uvicorn
 
+from deepsight.config import load_config
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Start the DeepSight local mission dashboard.")
-    parser.add_argument("--host", default="127.0.0.1", help="Bind address.")
-    parser.add_argument("--port", type=int, default=8766, help="Bind port.")
+    parser.add_argument("--host", default=None, help="Bind address. Defaults to [server].host.")
+    parser.add_argument("--port", type=int, default=None, help="Bind port. Defaults to [server].port.")
     parser.add_argument(
         "--config",
         default="configs/mission.example.toml",
@@ -17,11 +19,14 @@ def main() -> None:
     )
     args = parser.parse_args()
     os.environ["DEEPSIGHT_CONFIG"] = args.config
+    config = load_config(args.config)
+    host = args.host or os.environ.get("DEEPSIGHT_HOST") or config.server.host
+    port = args.port or int(os.environ.get("DEEPSIGHT_PORT") or config.server.port)
 
     uvicorn.run(
         "deepsight.server:create_app",
-        host=args.host,
-        port=args.port,
+        host=host,
+        port=port,
         factory=True,
         reload=False,
         app_dir="src",

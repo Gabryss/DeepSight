@@ -19,6 +19,11 @@ class Network(BaseModel):
     ping_timeout_sec: float = 1.0
 
 
+class Server(BaseModel):
+    host: str = "127.0.0.1"
+    port: int = 8766
+
+
 class Robot(BaseModel):
     id: str
     label: str
@@ -38,6 +43,7 @@ class Command(BaseModel):
 
 class AppConfig(BaseModel):
     mission: Mission = Field(default_factory=Mission)
+    server: Server = Field(default_factory=Server)
     network: Network = Field(default_factory=Network)
     robots: list[Robot] = Field(default_factory=list)
     commands: list[Command] = Field(default_factory=list)

@@ -110,6 +110,7 @@ def create_app() -> FastAPI:
     async def app_config() -> dict[str, object]:
         return {
             "mission": config.mission.model_dump(),
+            "server": config.server.model_dump(),
             "robots": [robot.model_dump() for robot in config.robots],
             "commands": [command.model_dump(exclude={"command"}) for command in config.commands],
         }

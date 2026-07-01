@@ -13,11 +13,15 @@ pip install -e ".[dev]"
 
 Open http://127.0.0.1:8766.
 
-Override launch settings with environment variables:
+The bind host and port are configured in `configs/mission.example.toml`:
 
-```bash
-DEEPSIGHT_CONFIG=configs/mission.example.toml DEEPSIGHT_HOST=0.0.0.0 DEEPSIGHT_PORT=8766 ./run_deepsight.sh
+```toml
+[server]
+host = "127.0.0.1"
+port = 8766
 ```
+
+Use `DEEPSIGHT_CONFIG=/path/to/mission.toml ./run_deepsight.sh` to launch another mission file. `DEEPSIGHT_HOST` and `DEEPSIGHT_PORT` can still override the TOML values for one-off runs.
 
 DeepSight automatically sources `[mission].ros_setup` for ROS commands, so a plain shell can start the server as long as the configured setup file exists.
 
@@ -28,6 +32,7 @@ Copy `configs/mission.example.toml` for each field test and edit:
 - `[[robots]]`: robot IDs, labels, hosts, SSH targets, and optional battery probes.
 - `[[commands]]`: allowlisted launch, restart, recording, or recovery commands.
 - `background = true`: use this for long-running launch or bag commands.
+- `[server].host` and `[server].port`: local web server bind address.
 - `[mission].ros_setup`: ROS 2 setup script to source before ROS CLI probes.
 - `[mission].bag_root`: local ROS bag root for the dashboard bag inventory.
 
