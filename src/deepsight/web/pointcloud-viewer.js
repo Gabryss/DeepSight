@@ -5,14 +5,22 @@ export class PointCloudViewer {
     this.statusNode = statusNode;
     this.gl = canvas.getContext("webgl", { antialias: false, alpha: true, powerPreference: "high-performance" });
     this.pointCount = 0;
-    this.budget = 50000;
+    this.budget = 200000;
+    this.colorMode = 0;
     this.frameCount = 0;
     this.lastFpsAt = performance.now();
-    this.rotation = 0;
+    this.yaw = -0.7;
+    this.pitch = -0.9;
+    this.distance = 14;
+    this.target = [0, 0, 0];
+    this.drag = null;
+    this.keys = new Set();
     this.program = null;
     this.buffer = null;
     this.locations = {};
+    this.bounds = { minZ: -1, maxZ: 1, maxDistance: 1 };
     this.animation = null;
+    this.installControls();
     if (this.gl) {
       this.initGl();
     } else {
@@ -25,11 +33,18 @@ export class PointCloudViewer {
   }
 
   setBudget(value) {
-    this.budget = Number.parseInt(value, 10) || 50000;
+    this.budget = Number.parseInt(value, 10) || 200000;
+  }
+
+  setColorMode(mode) {
+    this.colorMode = { distance: 0, height: 1, intensity: 2 }[mode] ?? 0;
   }
 
   reset() {
-    this.rotation = 0;
+    this.yaw = -0.7;
+    this.pitch = -0.9;
+    this.distance = 14;
+    this.target = [0, 0, 0];
   }
 
   clear(message = "no cloud loaded") {
@@ -42,36 +57,117 @@ export class PointCloudViewer {
     this.setStatus(message);
   }
 
+  installControls() {
+    this.canvas.tabIndex = 0;
+    this.canvas.addEventListener("pointerdown", (event) => {
+      this.canvas.focus();
+      this.canvas.setPointerCapture(event.pointerId);
+      this.drag = { x: event.clientX, y: event.clientY, button: event.button, shift: event.shiftKey };
+    });
+    this.canvas.addEventListener("pointermove", (event) => {
+      if (!this.drag) return;
+      const dx = event.clientX - this.drag.x;
+      const dy = event.clientY - this.drag.y;
+      this.drag.x = event.clientX;
+      this.drag.y = event.clientY;
+      if (this.drag.button === 1 || this.drag.button === 2 || this.drag.shift) {
+        this.pan(-dx * 0.012 * this.distance, dy * 0.012 * this.distance);
+      } else {
+        this.yaw += dx * 0.006;
+        this.pitch = Math.max(-1.52, Math.min(1.52, this.pitch + dy * 0.006));
+      }
+    });
+    this.canvas.addEventListener("pointerup", () => {
+      this.drag = null;
+    });
+    this.canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+    this.canvas.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      this.distance = Math.max(0.2, Math.min(250, this.distance * (1 + event.deltaY * 0.001)));
+    }, { passive: false });
+    window.addEventListener("keydown", (event) => {
+      if (document.activeElement === this.canvas) {
+        this.keys.add(event.key.toLowerCase());
+      }
+    });
+    window.addEventListener("keyup", (event) => this.keys.delete(event.key.toLowerCase()));
+  }
+
+  pan(dx, dy) {
+    const right = [Math.cos(this.yaw), -Math.sin(this.yaw), 0];
+    const up = [0, 0, 1];
+    this.target[0] += right[0] * dx + up[0] * dy;
+    this.target[1] += right[1] * dx + up[1] * dy;
+    this.target[2] += right[2] * dx + up[2] * dy;
+  }
+
+  updateKeyboard() {
+    const step = 0.055 * this.distance;
+    const forward = [Math.sin(this.yaw), Math.cos(this.yaw), 0];
+    const right = [Math.cos(this.yaw), -Math.sin(this.yaw), 0];
+    if (this.keys.has("w") || this.keys.has("arrowup")) this.panVector(forward, step);
+    if (this.keys.has("s") || this.keys.has("arrowdown")) this.panVector(forward, -step);
+    if (this.keys.has("d") || this.keys.has("arrowright")) this.panVector(right, step);
+    if (this.keys.has("a") || this.keys.has("arrowleft")) this.panVector(right, -step);
+    if (this.keys.has("q")) this.target[2] -= step;
+    if (this.keys.has("e")) this.target[2] += step;
+  }
+
+  panVector(vector, amount) {
+    this.target[0] += vector[0] * amount;
+    this.target[1] += vector[1] * amount;
+    this.target[2] += vector[2] * amount;
+  }
+
   initGl() {
     const vertexSource = `
       attribute vec3 position;
       attribute float intensity;
-      uniform mat4 transform;
+      uniform mat4 viewProjection;
+      uniform float minZ;
+      uniform float maxZ;
+      uniform float maxDistance;
+      uniform int colorMode;
+      varying float vMetric;
       varying float vIntensity;
       void main() {
-        vec4 p = transform * vec4(position, 1.0);
+        vec4 p = viewProjection * vec4(position, 1.0);
         gl_Position = p;
-        gl_PointSize = max(1.0, 3.5 - p.z * 1.3);
+        gl_PointSize = 2.0;
+        float dist = length(position) / max(maxDistance, 0.001);
+        float height = (position.z - minZ) / max(maxZ - minZ, 0.001);
+        vMetric = colorMode == 1 ? height : (colorMode == 2 ? intensity : dist);
         vIntensity = intensity;
       }
     `;
     const fragmentSource = `
       precision mediump float;
+      varying float vMetric;
       varying float vIntensity;
+      uniform int colorMode;
+      vec3 ramp(float t) {
+        t = clamp(t, 0.0, 1.0);
+        return mix(vec3(0.10, 0.65, 0.95), vec3(0.95, 0.92, 0.55), smoothstep(0.15, 0.75, t));
+      }
       void main() {
         float d = distance(gl_PointCoord, vec2(0.5));
         if (d > 0.5) discard;
-        gl_FragColor = vec4(vec3(0.55 + vIntensity * 0.45), 0.92);
+        vec3 color = colorMode == 2 ? vec3(0.25 + vIntensity * 0.75) : ramp(vMetric);
+        gl_FragColor = vec4(color, 0.94);
       }
     `;
     this.program = this.createProgram(vertexSource, fragmentSource);
     this.buffer = this.gl.createBuffer();
     this.locations.position = this.gl.getAttribLocation(this.program, "position");
     this.locations.intensity = this.gl.getAttribLocation(this.program, "intensity");
-    this.locations.transform = this.gl.getUniformLocation(this.program, "transform");
+    this.locations.viewProjection = this.gl.getUniformLocation(this.program, "viewProjection");
+    this.locations.minZ = this.gl.getUniformLocation(this.program, "minZ");
+    this.locations.maxZ = this.gl.getUniformLocation(this.program, "maxZ");
+    this.locations.maxDistance = this.gl.getUniformLocation(this.program, "maxDistance");
+    this.locations.colorMode = this.gl.getUniformLocation(this.program, "colorMode");
     this.gl.enable(this.gl.BLEND);
     this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
-    this.clear("select a bag topic and load");
+    this.clear("select PointCloud2 topic and stream");
     this.start();
   }
 
@@ -97,18 +193,31 @@ export class PointCloudViewer {
   }
 
   loadPoints(points, message = "cloud loaded") {
-    if (!this.gl) {
-      return;
-    }
+    if (!this.gl) return;
     const count = Math.min(points.length, this.budget);
     const data = new Float32Array(count * 4);
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+    let maxDistance = 0;
     for (let index = 0; index < count; index += 1) {
       const point = points[index];
-      data[index * 4] = point[0];
-      data[index * 4 + 1] = point[1];
-      data[index * 4 + 2] = point[2];
-      data[index * 4 + 3] = point[3] ?? 0.65;
+      const x = point[0];
+      const y = point[1];
+      const z = point[2];
+      const intensity = point[3] ?? 0.65;
+      data[index * 4] = x;
+      data[index * 4 + 1] = y;
+      data[index * 4 + 2] = z;
+      data[index * 4 + 3] = intensity;
+      minZ = Math.min(minZ, z);
+      maxZ = Math.max(maxZ, z);
+      maxDistance = Math.max(maxDistance, Math.hypot(x, y, z));
     }
+    this.bounds = {
+      minZ: Number.isFinite(minZ) ? minZ : -1,
+      maxZ: Number.isFinite(maxZ) ? maxZ : 1,
+      maxDistance: Math.max(1, maxDistance),
+    };
     this.pointCount = count;
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.buffer);
     this.gl.bufferData(this.gl.ARRAY_BUFFER, data, this.gl.DYNAMIC_DRAW);
@@ -129,25 +238,20 @@ export class PointCloudViewer {
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
   }
 
-  transformMatrix() {
+  viewProjectionMatrix() {
     const aspect = this.canvas.width / Math.max(1, this.canvas.height);
-    const c = Math.cos(this.rotation);
-    const s = Math.sin(this.rotation);
-    const scale = 0.82;
-    return new Float32Array([
-      scale / aspect * c, 0, scale / aspect * -s, 0,
-      0, scale, 0, 0,
-      scale * s, 0, scale * c, 0,
-      0, 0, 0, 1,
-    ]);
+    const eye = [
+      this.target[0] + this.distance * Math.cos(this.pitch) * Math.sin(this.yaw),
+      this.target[1] + this.distance * Math.cos(this.pitch) * Math.cos(this.yaw),
+      this.target[2] + this.distance * Math.sin(this.pitch),
+    ];
+    return multiply(perspective(Math.PI / 4, aspect, 0.02, 2000), lookAt(eye, this.target, [0, 0, 1]));
   }
 
   render = () => {
-    if (!this.gl) {
-      return;
-    }
+    if (!this.gl) return;
     this.resize();
-    this.rotation += 0.0025;
+    this.updateKeyboard();
     this.gl.clearColor(0, 0, 0, 0);
     this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
     this.gl.useProgram(this.program);
@@ -156,7 +260,11 @@ export class PointCloudViewer {
     this.gl.vertexAttribPointer(this.locations.position, 3, this.gl.FLOAT, false, 16, 0);
     this.gl.enableVertexAttribArray(this.locations.intensity);
     this.gl.vertexAttribPointer(this.locations.intensity, 1, this.gl.FLOAT, false, 16, 12);
-    this.gl.uniformMatrix4fv(this.locations.transform, false, this.transformMatrix());
+    this.gl.uniformMatrix4fv(this.locations.viewProjection, false, this.viewProjectionMatrix());
+    this.gl.uniform1f(this.locations.minZ, this.bounds.minZ);
+    this.gl.uniform1f(this.locations.maxZ, this.bounds.maxZ);
+    this.gl.uniform1f(this.locations.maxDistance, this.bounds.maxDistance);
+    this.gl.uniform1i(this.locations.colorMode, this.colorMode);
     this.gl.drawArrays(this.gl.POINTS, 0, this.pointCount);
     this.frameCount += 1;
     const now = performance.now();
@@ -173,4 +281,58 @@ export class PointCloudViewer {
       this.animation = requestAnimationFrame(this.render);
     }
   }
+}
+
+function perspective(fov, aspect, near, far) {
+  const f = 1 / Math.tan(fov / 2);
+  const nf = 1 / (near - far);
+  return new Float32Array([
+    f / aspect, 0, 0, 0,
+    0, f, 0, 0,
+    0, 0, (far + near) * nf, -1,
+    0, 0, 2 * far * near * nf, 0,
+  ]);
+}
+
+function lookAt(eye, center, up) {
+  const z = normalize([eye[0] - center[0], eye[1] - center[1], eye[2] - center[2]]);
+  const x = normalize(cross(up, z));
+  const y = cross(z, x);
+  return new Float32Array([
+    x[0], y[0], z[0], 0,
+    x[1], y[1], z[1], 0,
+    x[2], y[2], z[2], 0,
+    -dot(x, eye), -dot(y, eye), -dot(z, eye), 1,
+  ]);
+}
+
+function multiply(a, b) {
+  const out = new Float32Array(16);
+  for (let row = 0; row < 4; row += 1) {
+    for (let col = 0; col < 4; col += 1) {
+      out[col * 4 + row] =
+        a[0 * 4 + row] * b[col * 4 + 0] +
+        a[1 * 4 + row] * b[col * 4 + 1] +
+        a[2 * 4 + row] * b[col * 4 + 2] +
+        a[3 * 4 + row] * b[col * 4 + 3];
+    }
+  }
+  return out;
+}
+
+function normalize(v) {
+  const length = Math.hypot(v[0], v[1], v[2]) || 1;
+  return [v[0] / length, v[1] / length, v[2] / length];
+}
+
+function cross(a, b) {
+  return [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0],
+  ];
+}
+
+function dot(a, b) {
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }

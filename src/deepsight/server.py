@@ -42,6 +42,44 @@ class PointCloudSampleRequest(BaseModel):
     max_points: int = Field(default=50_000, ge=100, le=200_000)
 
 
+async def _forward_length_prefixed_json(websocket: WebSocket, process: asyncio.subprocess.Process, stream_name: str) -> None:
+    try:
+        if process.stdout is None:
+            await websocket.send_json({"ok": False, "error": f"{stream_name} stdout unavailable"})
+            return
+        while True:
+            header = await process.stdout.readexactly(4)
+            frame_size = struct.unpack(">I", header)[0]
+            if frame_size <= 0 or frame_size > 64_000_000:
+                await websocket.send_json({"ok": False, "error": f"invalid {stream_name} frame size: {frame_size}"})
+                return
+            payload = await process.stdout.readexactly(frame_size)
+            await websocket.send_text(payload.decode(errors="replace"))
+    except asyncio.IncompleteReadError:
+        stderr = ""
+        if process.stderr is not None:
+            stderr = (await process.stderr.read()).decode(errors="replace").strip()
+        try:
+            await websocket.send_json({"ok": False, "error": stderr or f"{stream_name} stopped"})
+        except RuntimeError:
+            return
+    except WebSocketDisconnect:
+        return
+    except ValueError as exc:
+        try:
+            await websocket.send_json({"ok": False, "error": str(exc)})
+        except RuntimeError:
+            return
+    finally:
+        if process.returncode is None:
+            process.terminate()
+            try:
+                await asyncio.wait_for(process.wait(), timeout=3)
+            except asyncio.TimeoutError:
+                process.kill()
+                await process.wait()
+
+
 def _tool_status(config: AppConfig) -> list[dict[str, object]]:
     status = []
     for category, tools in MISSION_TOOLS.items():
@@ -148,41 +186,45 @@ def create_app() -> FastAPI:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        try:
-            if process.stdout is None:
-                await websocket.send_json({"ok": False, "error": "point cloud stream stdout unavailable"})
-                return
-            while True:
-                header = await process.stdout.readexactly(4)
-                frame_size = struct.unpack(">I", header)[0]
-                if frame_size <= 0 or frame_size > 64_000_000:
-                    await websocket.send_json({"ok": False, "error": f"invalid point cloud frame size: {frame_size}"})
-                    return
-                payload = await process.stdout.readexactly(frame_size)
-                await websocket.send_text(payload.decode(errors="replace"))
-        except asyncio.IncompleteReadError:
-            stderr = ""
-            if process.stderr is not None:
-                stderr = (await process.stderr.read()).decode(errors="replace").strip()
-            try:
-                await websocket.send_json({"ok": False, "error": stderr or "point cloud stream stopped"})
-            except RuntimeError:
-                return
-        except WebSocketDisconnect:
+        await _forward_length_prefixed_json(websocket, process, "point cloud stream")
+
+    @app.websocket("/api/visual/camera-live")
+    async def visual_camera_live(
+        websocket: WebSocket,
+        topic: str = Query(...),
+        topic_type: str = Query(...),
+        rate_hz: float = Query(default=10.0, ge=0.2, le=30.0),
+    ) -> None:
+        await websocket.accept()
+        if topic_type not in {"sensor_msgs/msg/Image", "sensor_msgs/msg/CompressedImage"}:
+            await websocket.send_json({"ok": False, "error": "selected topic is not sensor_msgs Image or CompressedImage"})
             return
-        except ValueError as exc:
-            try:
-                await websocket.send_json({"ok": False, "error": str(exc)})
-            except RuntimeError:
-                return
-        finally:
-            if process.returncode is None:
-                process.terminate()
-                try:
-                    await asyncio.wait_for(process.wait(), timeout=3)
-                except asyncio.TimeoutError:
-                    process.kill()
-                    await process.wait()
+        command = ros_python_module_command(config, "deepsight.camera_live_cli", [topic, topic_type, str(rate_hz)])
+        process = await asyncio.create_subprocess_exec(
+            "bash",
+            "-lc",
+            command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        await _forward_length_prefixed_json(websocket, process, "camera stream")
+
+    @app.websocket("/api/visual/costmap-live")
+    async def visual_costmap_live(
+        websocket: WebSocket,
+        topic: str = Query(...),
+        rate_hz: float = Query(default=2.0, ge=0.2, le=10.0),
+    ) -> None:
+        await websocket.accept()
+        command = ros_python_module_command(config, "deepsight.costmap_live_cli", [topic, str(rate_hz)])
+        process = await asyncio.create_subprocess_exec(
+            "bash",
+            "-lc",
+            command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        await _forward_length_prefixed_json(websocket, process, "costmap stream")
 
     @app.get("/api/post-processing/status")
     async def post_processing_status() -> dict[str, object]:

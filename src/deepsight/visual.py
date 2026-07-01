@@ -9,6 +9,7 @@ from deepsight.runner import command_available, run_shell_command
 
 POINT_CLOUD_TYPES = {"sensor_msgs/msg/PointCloud2"}
 CAMERA_TYPES = {"sensor_msgs/msg/Image", "sensor_msgs/msg/CompressedImage"}
+CAMERA_INFO_TYPES = {"sensor_msgs/msg/CameraInfo"}
 COSTMAP_TYPES = {"nav_msgs/msg/OccupancyGrid"}
 
 
@@ -68,11 +69,20 @@ def visual_topics(config: AppConfig) -> dict[str, object]:
     values = sorted(topics.values(), key=lambda topic: (topic.source != "live", topic.name, topic.type))
     point_cloud = [topic.payload() for topic in values if topic.type in POINT_CLOUD_TYPES]
     camera = [topic.payload() for topic in values if topic.type in CAMERA_TYPES]
+    camera_info = [topic.payload() for topic in values if topic.type in CAMERA_INFO_TYPES]
     costmap = [topic.payload() for topic in values if topic.type in COSTMAP_TYPES]
+    entities = sorted({entity_from_topic(topic.name) for topic in values if entity_from_topic(topic.name)})
 
     return {
         "point_cloud": point_cloud,
         "camera": camera,
+        "camera_info": camera_info,
         "costmap": costmap,
-        "available": bool(point_cloud or camera or costmap),
+        "entities": entities,
+        "available": bool(point_cloud or camera or camera_info or costmap),
     }
+
+
+def entity_from_topic(topic_name: str) -> str:
+    parts = [part for part in topic_name.split("/") if part]
+    return parts[0] if parts else ""

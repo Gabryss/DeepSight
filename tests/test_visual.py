@@ -29,15 +29,19 @@ def test_visual_topics_merges_live_and_bag_topics(monkeypatch, tmp_path):
           storage_identifier: mcap
           duration:
             nanoseconds: 1000000000
-          message_count: 2
+          message_count: 4
           topics_with_message_count:
             - topic_metadata:
-                name: /bag_cloud
+                name: /leo05/bag_cloud
                 type: sensor_msgs/msg/PointCloud2
               message_count: 1
             - topic_metadata:
-                name: /bag_camera
+                name: /leo05/bag_camera
                 type: sensor_msgs/msg/CompressedImage
+              message_count: 1
+            - topic_metadata:
+                name: /leo05/camera_info
+                type: sensor_msgs/msg/CameraInfo
               message_count: 1
           relative_file_paths:
             - bag_0.mcap
@@ -53,14 +57,16 @@ def test_visual_topics_merges_live_and_bag_topics(monkeypatch, tmp_path):
             True,
             command,
             0,
-            "/live_cloud [sensor_msgs/msg/PointCloud2]\n/live_camera [sensor_msgs/msg/Image]\n/map [nav_msgs/msg/OccupancyGrid]",
+            "/base/live_cloud [sensor_msgs/msg/PointCloud2]\n/base/live_camera [sensor_msgs/msg/Image]\n/base/map [nav_msgs/msg/OccupancyGrid]",
             "",
         ),
     )
 
     payload = visual.visual_topics(AppConfig(mission=Mission(bag_root=str(tmp_path))))
 
-    assert {topic["name"] for topic in payload["point_cloud"]} == {"/live_cloud", "/bag_cloud"}
-    assert {topic["name"] for topic in payload["camera"]} == {"/live_camera", "/bag_camera"}
-    assert payload["costmap"][0]["name"] == "/map"
+    assert {topic["name"] for topic in payload["point_cloud"]} == {"/base/live_cloud", "/leo05/bag_cloud"}
+    assert {topic["name"] for topic in payload["camera"]} == {"/base/live_camera", "/leo05/bag_camera"}
+    assert payload["camera_info"][0]["name"] == "/leo05/camera_info"
+    assert payload["costmap"][0]["name"] == "/base/map"
+    assert payload["entities"] == ["base", "leo05"]
     assert payload["available"] is True

@@ -7,12 +7,11 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <div class="scanline"></div>
     <main class="hud-shell">
       <aside class="left-rail" aria-label="Data sources">
         <section class="identity">
-          <span class="eyebrow">Recovered</span>
-          <strong>Data Source</strong>
+          <span class="eyebrow">DeepSight</span>
+          <strong>Mission Control</strong>
           <span id="mission-name">Local mission dashboard</span>
         </section>
 
@@ -36,11 +35,10 @@
         <header class="stage-top">
           <div class="stage-title">
             <strong>DeepSight</strong>
-            <span>compiling codex ..... </span>
+            <span>underground robotics dashboard</span>
           </div>
           <nav class="stage-tabs" aria-label="Primary view tabs">
-            <button class="tab-button active" data-tab-target="feed-live" type="button">Live</button>
-            <button class="tab-button" data-tab-target="feed-cloud" type="button">Cloud</button>
+            <button class="tab-button active" data-tab-target="feed-cloud" type="button">Cloud</button>
             <button class="tab-button" data-tab-target="feed-map" type="button">Map</button>
             <button class="tab-button" data-tab-target="feed-camera" type="button">Camera</button>
             <button class="tab-button" data-tab-target="feed-costmap" type="button">Costmap</button>
@@ -57,36 +55,27 @@
         </header>
 
         <div class="viewport">
-          <div id="feed-live" class="tab-panel active">
-            <div class="viewport-grid"></div>
-            <div class="point-field" aria-hidden="true">
-              <span style="--x: 12%; --y: 31%"></span>
-              <span style="--x: 20%; --y: 62%"></span>
-              <span style="--x: 31%; --y: 43%"></span>
-              <span style="--x: 43%; --y: 68%"></span>
-              <span style="--x: 58%; --y: 38%"></span>
-              <span style="--x: 72%; --y: 56%"></span>
-              <span style="--x: 84%; --y: 30%"></span>
-              <span style="--x: 88%; --y: 74%"></span>
-            </div>
-            <div class="feed-copy">
-              <strong>Primary Feed</strong>
-              <span>live stream and operator annotations</span>
-            </div>
-          </div>
-          <div id="feed-cloud" class="tab-panel visual-panel">
+          <div id="feed-cloud" class="tab-panel visual-panel active">
             <div class="visual-toolbar">
               <label>
                 <span>topic</span>
                 <select id="cloud-topic-select"></select>
               </label>
               <label>
-                <span>budget</span>
+                <span>max points</span>
                 <select id="cloud-point-budget">
                   <option value="25000">25k</option>
-                  <option value="50000" selected>50k</option>
+                  <option value="50000">50k</option>
                   <option value="100000">100k</option>
-                  <option value="200000">200k</option>
+                  <option value="200000" selected>200k</option>
+                </select>
+              </label>
+              <label>
+                <span>color</span>
+                <select id="cloud-color-mode">
+                  <option value="distance" selected>distance</option>
+                  <option value="height">height</option>
+                  <option value="intensity">intensity</option>
                 </select>
               </label>
               <button id="cloud-stream" type="button">Stream</button>
@@ -100,24 +89,37 @@
               <span id="cloud-stats">0 pts · 0 fps</span>
             </div>
           </div>
-          <div id="feed-map" class="tab-panel placeholder-panel">
-            <strong>Map</strong>
-            <span>local and global map summary</span>
+          <div id="feed-map" class="tab-panel visual-panel">
+            <div class="visual-toolbar">
+              <label>
+                <span>entity</span>
+                <select id="map-entity-select"></select>
+              </label>
+              <label>
+                <span>costmap</span>
+                <select id="map-topic-select"></select>
+              </label>
+              <button id="map-load" type="button">Stream</button>
+            </div>
+            <canvas id="map-canvas" aria-label="Top down costmap viewport"></canvas>
+            <div class="visual-hud">
+              <span id="map-status">awaiting costmap topic</span>
+              <span id="map-stats">top down occupancy view</span>
+            </div>
           </div>
           <div id="feed-camera" class="tab-panel visual-panel">
             <div class="visual-toolbar">
               <label>
-                <span>topic</span>
+                <span>entity</span>
+                <select id="camera-entity-select"></select>
+              </label>
+              <label>
+                <span>camera</span>
                 <select id="camera-topic-select"></select>
               </label>
               <label>
-                <span>fps cap</span>
-                <select id="camera-fps-cap">
-                  <option value="5">5</option>
-                  <option value="10" selected>10</option>
-                  <option value="15">15</option>
-                  <option value="30">30</option>
-                </select>
+                <span>metadata</span>
+                <select id="camera-info-topic-select"></select>
               </label>
               <button id="camera-pause" type="button">Pause</button>
             </div>
@@ -127,9 +129,23 @@
               <span id="camera-stats">0 fps · 0 dropped</span>
             </div>
           </div>
-          <div id="feed-costmap" class="tab-panel placeholder-panel">
-            <strong>Costmap</strong>
-            <span>navigation costmap and goal overlay</span>
+          <div id="feed-costmap" class="tab-panel visual-panel">
+            <div class="visual-toolbar">
+              <label>
+                <span>entity</span>
+                <select id="costmap-entity-select"></select>
+              </label>
+              <label>
+                <span>costmap</span>
+                <select id="costmap-topic-select"></select>
+              </label>
+              <button id="costmap-load" type="button">Stream</button>
+            </div>
+            <canvas id="costmap-canvas" aria-label="Costmap viewport"></canvas>
+            <div class="visual-hud">
+              <span id="costmap-status">awaiting costmap topic</span>
+              <span id="costmap-stats">navigation occupancy view</span>
+            </div>
           </div>
           <div id="feed-network" class="tab-panel network-panel">
             <div class="network-card">
@@ -185,21 +201,15 @@
               <pre id="post-status" class="post-status">idle</pre>
             </section>
           </div>
-          <div class="feed-frame">
-            <span class="feed-label">SOURCE: live stream</span>
-            <span class="feed-mode">UNDERGROUND OPERATIONS INTERFACE</span>
-          </div>
-          <button class="play-indicator" type="button" title="Primary feed">▶Ⅱ</button>
         </div>
 
         <footer class="stage-bottom">
           <div>
-            <span class="muted">features = extract_features(frame)</span>
-            <span class="muted">hypothesis = classify(features)</span>
-            <span class="muted">print(hypothesis)</span>
+            <span>selected cloud:</span>
+            <strong id="selected-cloud-topic">none</strong>
           </div>
           <div>
-            <span>identified:</span>
+            <span>ROS:</span>
             <strong id="ros-state">Unknown</strong>
             <span>topics:</span>
             <strong id="topic-count">0</strong>
@@ -259,7 +269,13 @@
           <button class="tab-button" data-tab-target="console-log" type="button">Output</button>
         </div>
         <div id="console-commands" class="console-panel active">
-          <h2>Remote Commands</h2>
+          <div class="console-head">
+            <h2>Remote Commands</h2>
+            <label>
+              <span>target</span>
+              <select id="command-target-select"></select>
+            </label>
+          </div>
           <div id="commands" class="command-list"></div>
         </div>
         <pre id="console-log" class="console-panel output">\&gt;</pre>

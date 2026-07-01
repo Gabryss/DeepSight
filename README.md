@@ -78,6 +78,8 @@ Tests include service-level end-to-end coverage for bag inventory and post-proce
 
 ## Visualization Notes
 
-The Cloud tab uses a native WebGL renderer with a configurable point budget. Use Stream to subscribe to a live PointCloud2 topic and update the 3D panel as frames arrive. Select a configured bag in Post Processing, choose a PointCloud2 topic in the Cloud tab, then use Load to render an actual sample from the bag. The Camera tab reserves a canvas surface for real image frames and no longer displays synthetic imagery. Topic selectors are populated from live ROS topic types when `ros2 topic list -t` is available and from configured bag metadata otherwise.
+The Cloud tab uses a native WebGL renderer with a configurable max-points cap. Use Stream to subscribe to a live PointCloud2 topic and update the 3D panel as frames arrive. Mouse controls orbit, pan, and zoom the scene; WASD/arrow keys move through the cloud when the canvas is focused. Color modes support distance, height, and intensity. The max-points cap remains as a field safety control for browser/GPU load, and defaults to 200k to avoid dropping too much data.
 
-The current camera renderer still provides the optimized browser-side surface and topic-selection contract. The next integration step is to feed live camera frames and live point cloud updates from a dedicated ROS streaming bridge using binary PointCloud2 packets and compressed image frames, rather than JSON payloads.
+Select a configured bag in Post Processing, choose a PointCloud2 topic in the Cloud tab, then use Load to render an actual sample from the bag. The Camera tab streams selected `sensor_msgs/msg/Image` or `sensor_msgs/msg/CompressedImage` topics and includes a camera metadata topic selector. The Map and Costmap tabs stream selected `nav_msgs/msg/OccupancyGrid` topics into top-down canvas views. Topic selectors are populated from live ROS topic types when `ros2 topic list -t` is available and from configured bag metadata otherwise.
+
+The next integration step is to move high-rate visual streams from JSON payloads to binary WebSocket packets for lower CPU overhead during long missions.
