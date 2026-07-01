@@ -4,7 +4,7 @@ import asyncio
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from deepsight.bags import bag_inventory
 from deepsight.config import AppConfig, load_config
 from deepsight.network import robot_batteries, robot_connectivity
-from deepsight.pointcloud import pointcloud_sample
+from deepsight.pointcloud import pointcloud_sample, ros_python_module_command
 from deepsight.postprocessing import BagPlayback, start_bag_playback, stop_bag_playback
 from deepsight.ros import ros_snapshot
 from deepsight.runner import command_available, find_command, run_shell_command_async, start_background_command_async
@@ -129,6 +129,46 @@ def create_app() -> FastAPI:
     @app.post("/api/visual/pointcloud-sample")
     async def visual_pointcloud_sample(request: PointCloudSampleRequest) -> dict[str, object]:
         return await asyncio.to_thread(pointcloud_sample, config, request.bag_path, request.topic, request.max_points)
+
+    @app.websocket("/api/visual/pointcloud-live")
+    async def visual_pointcloud_live(
+        websocket: WebSocket,
+        topic: str = Query(...),
+        max_points: int = Query(default=50_000, ge=100, le=200_000),
+        rate_hz: float = Query(default=5.0, ge=0.2, le=20.0),
+    ) -> None:
+        await websocket.accept()
+        command = ros_python_module_command(config, "deepsight.pointcloud_live_cli", [topic, str(max_points), str(rate_hz)])
+        process = await asyncio.create_subprocess_exec(
+            "bash",
+            "-lc",
+            command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            if process.stdout is None:
+                await websocket.send_json({"ok": False, "error": "point cloud stream stdout unavailable"})
+                return
+            while True:
+                line = await process.stdout.readline()
+                if not line:
+                    stderr = ""
+                    if process.stderr is not None:
+                        stderr = (await process.stderr.read()).decode(errors="replace").strip()
+                    await websocket.send_json({"ok": False, "error": stderr or "point cloud stream stopped"})
+                    return
+                await websocket.send_text(line.decode(errors="replace"))
+        except WebSocketDisconnect:
+            return
+        finally:
+            if process.returncode is None:
+                process.terminate()
+                try:
+                    await asyncio.wait_for(process.wait(), timeout=3)
+                except asyncio.TimeoutError:
+                    process.kill()
+                    await process.wait()
 
     @app.get("/api/post-processing/status")
     async def post_processing_status() -> dict[str, object]:

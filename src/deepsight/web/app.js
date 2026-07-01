@@ -6,6 +6,7 @@ const state = {
   bags: [],
   selectedBagPath: null,
   visualTopics: { point_cloud: [], camera: [], costmap: [] },
+  cloudSocket: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -351,6 +352,7 @@ async function refreshPostProcessingStatus() {
 }
 
 async function loadPointCloudSample(button) {
+  stopPointCloudStream("loading bag sample");
   const bag = selectedBag();
   const topic = $("#cloud-topic-select").value;
   if (!bag || !topic) {
@@ -382,6 +384,58 @@ async function loadPointCloudSample(button) {
   } finally {
     button.disabled = false;
   }
+}
+
+function stopPointCloudStream(message = "stream stopped") {
+  if (state.cloudSocket) {
+    state.cloudSocket.close();
+    state.cloudSocket = null;
+  }
+  $("#cloud-stream").disabled = false;
+  $("#cloud-stop").disabled = true;
+  if (message) {
+    $("#cloud-status").textContent = message;
+  }
+}
+
+function startPointCloudStream(button) {
+  const topic = $("#cloud-topic-select").value;
+  if (!topic) {
+    cloudViewer.clear("select a PointCloud2 topic");
+    return;
+  }
+  stopPointCloudStream("");
+  const protocol = location.protocol === "https:" ? "wss" : "ws";
+  const params = new URLSearchParams({
+    topic,
+    max_points: $("#cloud-point-budget").value || "50000",
+    rate_hz: "5",
+  });
+  const socket = new WebSocket(`${protocol}://${location.host}/api/visual/pointcloud-live?${params.toString()}`);
+  state.cloudSocket = socket;
+  button.disabled = true;
+  $("#cloud-stop").disabled = false;
+  cloudViewer.clear(`streaming ${topic}...`);
+
+  socket.addEventListener("message", (event) => {
+    const payload = JSON.parse(event.data);
+    if (!payload.ok) {
+      cloudViewer.clear(payload.error || "point cloud stream failed");
+      return;
+    }
+    cloudViewer.loadPoints(payload.points ?? [], "live cloud frame");
+    $("#cloud-status").textContent = `${payload.topic} · ${payload.point_count} live pts`;
+  });
+  socket.addEventListener("close", () => {
+    if (state.cloudSocket === socket) {
+      state.cloudSocket = null;
+      $("#cloud-stream").disabled = false;
+      $("#cloud-stop").disabled = true;
+    }
+  });
+  socket.addEventListener("error", () => {
+    cloudViewer.clear("point cloud stream error");
+  });
 }
 
 async function playPostProcessingBag() {
@@ -461,10 +515,14 @@ $("#post-play").addEventListener("click", playPostProcessingBag);
 $("#post-stop").addEventListener("click", stopPostProcessingBag);
 const cloudViewer = new PointCloudViewer($("#cloud-canvas"), $("#cloud-stats"), $("#cloud-status"));
 const cameraViewer = new CameraViewer($("#camera-canvas"), $("#camera-stats"), $("#camera-status"));
+$("#cloud-stop").disabled = true;
 $("#cloud-point-budget").addEventListener("change", (event) => cloudViewer.setBudget(event.target.value));
 $("#cloud-reset").addEventListener("click", () => cloudViewer.reset());
 $("#cloud-load").addEventListener("click", (event) => loadPointCloudSample(event.target));
+$("#cloud-stream").addEventListener("click", (event) => startPointCloudStream(event.target));
+$("#cloud-stop").addEventListener("click", () => stopPointCloudStream());
 $("#cloud-topic-select").addEventListener("change", (event) => {
+  stopPointCloudStream("");
   cloudViewer.clear(event.target.value ? `selected ${event.target.value}` : "no PointCloud2 topic detected");
 });
 $("#camera-fps-cap").addEventListener("change", (event) => cameraViewer.setFpsCap(event.target.value));

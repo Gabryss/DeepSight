@@ -117,11 +117,7 @@ def _read_pointcloud_from_bag(bag: dict[str, object], topic: str, max_points: in
 
 
 def _subprocess_pointcloud_sample(config: AppConfig, bag_path: str, topic: str, max_points: int) -> dict[str, object]:
-    module_root = str(Path(__file__).resolve().parents[1])
-    env_prefix = f"PYTHONPATH={shlex_join([module_root])}:$PYTHONPATH"
-    command = f"{env_prefix} {shlex_join([sys.executable, '-m', 'deepsight.pointcloud_cli', bag_path, topic, str(max_points)])}"
-    if config.mission.ros_setup:
-        command = f"source {shlex_join([config.mission.ros_setup])} && {command}"
+    command = ros_python_module_command(config, "deepsight.pointcloud_cli", [bag_path, topic, str(max_points)])
     result = subprocess.run(["bash", "-lc", command], capture_output=True, text=True, timeout=30, check=False)
     if result.returncode != 0:
         return {"ok": False, "error": result.stderr.strip() or result.stdout.strip() or "point cloud extractor failed", "points": []}
@@ -135,6 +131,15 @@ def shlex_join(parts: list[str]) -> str:
     import shlex
 
     return " ".join(shlex.quote(part) for part in parts)
+
+
+def ros_python_module_command(config: AppConfig, module: str, args: list[str]) -> str:
+    module_root = str(Path(__file__).resolve().parents[1])
+    env_prefix = f"PYTHONPATH={shlex_join([module_root])}:$PYTHONPATH"
+    command = f"{env_prefix} {shlex_join([sys.executable, '-m', module, *args])}"
+    if config.mission.ros_setup:
+        return f"source {shlex_join([config.mission.ros_setup])} && {command}"
+    return command
 
 
 def pointcloud_sample(config: AppConfig, bag_path: str, topic: str, max_points: int) -> dict[str, object]:

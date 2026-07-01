@@ -4,6 +4,8 @@ import struct
 from dataclasses import dataclass
 
 from deepsight.pointcloud import pointcloud2_to_points
+from deepsight.config import AppConfig, Mission
+from deepsight.pointcloud import ros_python_module_command
 
 
 @dataclass
@@ -52,3 +54,14 @@ def test_pointcloud2_to_points_rejects_missing_xyz():
     message = Message(width=1, height=1, point_step=4, row_step=4, fields=[Field("x", 0, 7)], data=b"\x00" * 4)
 
     assert pointcloud2_to_points(message, max_points=100) == []
+
+
+def test_ros_python_module_command_sources_ros_and_preserves_pythonpath():
+    config = AppConfig(mission=Mission(ros_setup="/opt/ros/jazzy/setup.bash"))
+
+    command = ros_python_module_command(config, "deepsight.pointcloud_live_cli", ["/cloud", "1000", "5"])
+
+    assert command.startswith("source /opt/ros/jazzy/setup.bash && ")
+    assert "PYTHONPATH=" in command
+    assert ":$PYTHONPATH" in command
+    assert "deepsight.pointcloud_live_cli /cloud 1000 5" in command

@@ -96,7 +96,7 @@ export class PointCloudViewer {
     return program;
   }
 
-  loadPoints(points) {
+  loadPoints(points, message = "cloud loaded") {
     if (!this.gl) {
       return;
     }
@@ -112,7 +112,7 @@ export class PointCloudViewer {
     this.pointCount = count;
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.buffer);
     this.gl.bufferData(this.gl.ARRAY_BUFFER, data, this.gl.DYNAMIC_DRAW);
-    this.setStatus("bag cloud loaded");
+    this.setStatus(message);
     this.statsNode.textContent = `${this.pointCount.toLocaleString()} pts · loading`;
   }
 
