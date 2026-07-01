@@ -24,6 +24,7 @@ export class PointCloudViewer {
     this.bounds = { minZ: -1, maxZ: 1, maxDistance: 1 };
     this.hasFramed = false;
     this.animation = null;
+    this.autoOrbit = true;
     this.installControls();
     if (this.gl) {
       try {
@@ -57,6 +58,10 @@ export class PointCloudViewer {
     this.drawFallback();
   }
 
+  stopAutoOrbit() {
+    this.autoOrbit = false;
+  }
+
   reset() {
     this.yaw = -0.7;
     this.pitch = -0.9;
@@ -86,6 +91,7 @@ export class PointCloudViewer {
   installControls() {
     this.canvas.tabIndex = 0;
     this.canvas.addEventListener("pointerdown", (event) => {
+      this.stopAutoOrbit();
       this.canvas.focus();
       this.canvas.setPointerCapture(event.pointerId);
       this.drag = { x: event.clientX, y: event.clientY, button: event.button, shift: event.shiftKey };
@@ -109,12 +115,14 @@ export class PointCloudViewer {
     });
     this.canvas.addEventListener("contextmenu", (event) => event.preventDefault());
     this.canvas.addEventListener("wheel", (event) => {
+      this.stopAutoOrbit();
       event.preventDefault();
       this.distance = Math.max(0.2, Math.min(250, this.distance * (1 + event.deltaY * 0.001)));
       this.drawFallback();
     }, { passive: false });
     window.addEventListener("keydown", (event) => {
       if (document.activeElement === this.canvas) {
+        this.stopAutoOrbit();
         this.keys.add(event.key.toLowerCase());
       }
     });
@@ -268,7 +276,8 @@ export class PointCloudViewer {
     if (this.gl) {
       this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.buffer);
       this.gl.bufferData(this.gl.ARRAY_BUFFER, data, this.gl.DYNAMIC_DRAW);
-      this.statsNode.textContent = `${this.pointCount.toLocaleString()} pts · loading`;
+      this.statsNode.textContent = `${this.pointCount.toLocaleString()} pts · queued`;
+      this.start();
     } else {
       this.drawFallback();
     }
@@ -430,6 +439,9 @@ export class PointCloudViewer {
     if (!this.gl) return;
     this.resize();
     this.updateKeyboard();
+    if (this.autoOrbit && this.pointCount > 0 && this.keys.size === 0 && !this.drag) {
+      this.yaw += 0.0035;
+    }
     this.gl.clearColor(0, 0, 0, 0);
     this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
     this.gl.useProgram(this.program);

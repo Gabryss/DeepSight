@@ -79,6 +79,8 @@ def test_visible_entities_ignore_global_ros_topics():
         "/tf_statics",
         "/rosout",
         "/rousout",
+        "/battery_state",
+        "/events/read_split",
         "/parameter_events",
         "/clock",
         "/leo05/livox/lidar",

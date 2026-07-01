@@ -90,6 +90,7 @@ def test_dashboard_loads_visual_renderers():
     assert "Could not load bag inventory" in app_js
     assert "setColorMode" in app_js
     assert "setPointSize" in app_js
+    assert "batteryTopicsForEntity" in app_js
     assert "entityFromTopicName" in app_js
     assert "visibleEntities" in app_js
     assert "GLOBAL_TOPIC_NAMES" in app_js
@@ -100,5 +101,7 @@ def test_dashboard_loads_visual_renderers():
     assert "frameBounds" in pointcloud_js
     assert "bestFallbackProjection" in pointcloud_js
     assert "pointSize" in pointcloud_js
+    assert "autoOrbit" in pointcloud_js
+    assert "stopAutoOrbit" in pointcloud_js
     assert "drawn" in pointcloud_js
     assert "none projected into view" in pointcloud_js

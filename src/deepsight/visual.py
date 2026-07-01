@@ -13,7 +13,9 @@ CAMERA_TYPES = {"sensor_msgs/msg/Image", "sensor_msgs/msg/CompressedImage"}
 CAMERA_INFO_TYPES = {"sensor_msgs/msg/CameraInfo"}
 COSTMAP_TYPES = {"nav_msgs/msg/OccupancyGrid"}
 GLOBAL_TOPIC_NAMES = {
+    "/battery_state",
     "/clock",
+    "/events",
     "/parameter_events",
     "/rosout",
     "/rousout",

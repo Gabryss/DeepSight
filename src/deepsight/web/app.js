@@ -40,7 +40,17 @@ function chip(value) {
   return span;
 }
 
-const GLOBAL_TOPIC_NAMES = new Set(["/clock", "/parameter_events", "/rosout", "/rousout", "/tf", "/tf_static", "/tf_statics"]);
+const GLOBAL_TOPIC_NAMES = new Set([
+  "/battery_state",
+  "/clock",
+  "/events",
+  "/parameter_events",
+  "/rosout",
+  "/rousout",
+  "/tf",
+  "/tf_static",
+  "/tf_statics",
+]);
 
 function renderRobots(entities) {
   const root = $("#robots");
@@ -63,19 +73,30 @@ function renderRobots(entities) {
   }
 }
 
-function renderBatteries(batteries) {
+function batteryTopicsForEntity(entity, topics) {
+  const prefix = `/${entity}/`;
+  return (topics ?? []).filter((topic) => String(topic).startsWith(prefix) && String(topic).toLowerCase().includes("battery"));
+}
+
+function renderBatteries(entities, topics) {
   const root = $("#batteries");
   root.replaceChildren();
-  for (const battery of batteries) {
-    const value = typeof battery.value === "number" ? Math.max(0, Math.min(100, battery.value * (battery.value <= 1 ? 100 : 1))) : null;
+  for (const entity of entities) {
+    const batteryTopics = batteryTopicsForEntity(entity, topics);
     const row = document.createElement("div");
     row.className = "row";
     row.innerHTML = `
-      <div class="title"><strong>${battery.label}</strong><span>${value == null ? "n/a" : `${value.toFixed(0)}%`}</span></div>
-      <div class="meter ${value != null && value < 25 ? "low" : ""}"><span style="width: ${value ?? 0}%"></span></div>
-      <span class="muted">${battery.available ? battery.raw : "not configured"}</span>
+      <div class="title"><strong>${entity}</strong><span>${batteryTopics.length ? "topic" : "n/a"}</span></div>
+      <div class="meter"><span style="width: 0%"></span></div>
+      <span class="muted">${batteryTopics[0] || "no namespace battery topic detected"}</span>
     `;
     root.append(row);
+  }
+  if (!entities.length) {
+    const empty = document.createElement("div");
+    empty.className = "row";
+    empty.textContent = "No robot namespaces visible.";
+    root.append(empty);
   }
 }
 
@@ -400,7 +421,7 @@ function render(payload) {
   $("#mode-dds").classList.toggle("active", payload.middleware_mode === "dds");
   $("#mode-zenoh").classList.toggle("active", payload.middleware_mode === "zenoh");
   renderRobots(state.visibleEntities);
-  renderBatteries(payload.batteries);
+  renderBatteries(state.visibleEntities, payload.ros?.topics ?? []);
   renderCommandTargets(payload);
   renderRos(payload.ros);
   renderNetwork(payload);
