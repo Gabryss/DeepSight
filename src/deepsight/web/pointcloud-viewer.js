@@ -22,7 +22,13 @@ export class PointCloudViewer {
     this.animation = null;
     this.installControls();
     if (this.gl) {
-      this.initGl();
+      try {
+        this.initGl();
+      } catch (error) {
+        console.error("point cloud viewer failed to initialize", error);
+        this.gl = null;
+        this.setStatus(`webgl init failed: ${error.message}`);
+      }
     } else {
       this.setStatus("webgl unavailable");
     }

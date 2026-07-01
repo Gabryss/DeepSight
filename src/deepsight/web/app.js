@@ -18,8 +18,18 @@ const state = {
 
 const $ = (selector) => document.querySelector(selector);
 
+function on(selector, eventName, handler) {
+  const element = $(selector);
+  if (element) {
+    element.addEventListener(eventName, handler);
+  }
+}
+
 function text(selector, value) {
-  $(selector).textContent = value;
+  const element = $(selector);
+  if (element) {
+    element.textContent = value;
+  }
 }
 
 function chip(value) {
@@ -675,48 +685,54 @@ function connectLive() {
   socket.addEventListener("close", () => setTimeout(connectLive, 3000));
 }
 
-$("#refresh").addEventListener("click", () => {
+document.querySelectorAll("[data-tab-target]").forEach((button) => {
+  button.addEventListener("click", () => activateTab(button));
+});
+
+on("#refresh", "click", () => {
   refresh();
   refreshVisualTopicsNow();
 });
-$("#mode-dds").addEventListener("click", () => setMode("dds"));
-$("#mode-zenoh").addEventListener("click", () => setMode("zenoh"));
-$("#post-bag-select").addEventListener("change", (event) => {
+on("#mode-dds", "click", () => setMode("dds"));
+on("#mode-zenoh", "click", () => setMode("zenoh"));
+on("#post-bag-select", "change", (event) => {
   state.selectedBagPath = event.target.value;
   renderPostProcessingControls();
 });
-$("#post-play").addEventListener("click", playPostProcessingBag);
-$("#post-stop").addEventListener("click", stopPostProcessingBag);
+on("#post-play", "click", playPostProcessingBag);
+on("#post-stop", "click", stopPostProcessingBag);
 const cloudViewer = new PointCloudViewer($("#cloud-canvas"), $("#cloud-stats"), $("#cloud-status"));
 const cameraViewer = new CameraViewer($("#camera-canvas"), $("#camera-stats"), $("#camera-status"));
 const mapViewer = new CostmapViewer($("#map-canvas"), $("#map-stats"), $("#map-status"), "map");
 const costmapViewer = new CostmapViewer($("#costmap-canvas"), $("#costmap-stats"), $("#costmap-status"), "costmap");
-$("#cloud-stop").disabled = true;
-$("#cloud-point-budget").addEventListener("change", (event) => cloudViewer.setBudget(event.target.value));
-$("#cloud-color-mode").addEventListener("change", (event) => cloudViewer.setColorMode(event.target.value));
-$("#cloud-reset").addEventListener("click", () => cloudViewer.reset());
-$("#cloud-load").addEventListener("click", (event) => loadPointCloudSample(event.target));
-$("#cloud-stream").addEventListener("click", (event) => startPointCloudStream(event.target));
-$("#cloud-stop").addEventListener("click", () => stopPointCloudStream());
-$("#cloud-topic-select").addEventListener("change", (event) => {
+if ($("#cloud-stop")) {
+  $("#cloud-stop").disabled = true;
+}
+on("#cloud-point-budget", "change", (event) => cloudViewer.setBudget(event.target.value));
+on("#cloud-color-mode", "change", (event) => cloudViewer.setColorMode(event.target.value));
+on("#cloud-reset", "click", () => cloudViewer.reset());
+on("#cloud-load", "click", (event) => loadPointCloudSample(event.target));
+on("#cloud-stream", "click", (event) => startPointCloudStream(event.target));
+on("#cloud-stop", "click", () => stopPointCloudStream());
+on("#cloud-topic-select", "change", (event) => {
   stopPointCloudStream("");
   cloudViewer.clear(event.target.value ? `selected ${event.target.value}` : "no PointCloud2 topic detected");
   $("#selected-cloud-topic").textContent = event.target.value || "none";
 });
-$("#camera-pause").addEventListener("click", (event) => {
+on("#camera-pause", "click", (event) => {
   event.target.textContent = cameraViewer.togglePause() ? "Resume" : "Pause";
 });
-$("#camera-topic-select").addEventListener("change", (event) => {
+on("#camera-topic-select", "change", (event) => {
   stopSocket("cameraSocket");
   cameraViewer.clear(event.target.value ? `selected ${event.target.value}` : "no Image topic detected");
   if (event.target.value) {
     startCameraStream();
   }
 });
-$("#camera-info-topic-select").addEventListener("change", (event) => {
+on("#camera-info-topic-select", "change", (event) => {
   $("#camera-status").textContent = event.target.value ? `metadata ${event.target.value}` : "no metadata selected";
 });
-$("#camera-entity-select").addEventListener("change", () => {
+on("#camera-entity-select", "change", () => {
   const entity = $("#camera-entity-select").value;
   fillTopicSelect($("#camera-topic-select"), state.visualTopics.camera ?? [], "no camera topics", entity);
   fillTopicSelect($("#camera-info-topic-select"), state.visualTopics.camera_info ?? [], "no camera metadata topics", entity);
@@ -725,26 +741,23 @@ $("#camera-entity-select").addEventListener("change", () => {
     startCameraStream();
   }
 });
-$("#map-entity-select").addEventListener("change", () => {
+on("#map-entity-select", "change", () => {
   stopSocket("mapSocket");
   fillTopicSelect($("#map-topic-select"), state.visualTopics.costmap ?? [], "no costmap topics", $("#map-entity-select").value);
 });
-$("#map-load").addEventListener("click", () => {
+on("#map-load", "click", () => {
   startCostmapStream("#map-topic-select", "mapSocket", mapViewer, "#map-status");
 });
-$("#costmap-entity-select").addEventListener("change", () => {
+on("#costmap-entity-select", "change", () => {
   stopSocket("costmapSocket");
   fillTopicSelect($("#costmap-topic-select"), state.visualTopics.costmap ?? [], "no costmap topics", $("#costmap-entity-select").value);
 });
-$("#costmap-load").addEventListener("click", () => {
+on("#costmap-load", "click", () => {
   startCostmapStream("#costmap-topic-select", "costmapSocket", costmapViewer, "#costmap-status");
 });
-$("#command-target-select").addEventListener("change", (event) => {
+on("#command-target-select", "change", (event) => {
   state.commandTarget = event.target.value;
   renderCommands(state.latest?.commands ?? []);
-});
-document.querySelectorAll("[data-tab-target]").forEach((button) => {
-  button.addEventListener("click", () => activateTab(button));
 });
 
 refresh();
