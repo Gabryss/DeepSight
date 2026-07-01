@@ -8,21 +8,25 @@ def test_dashboard_contains_primary_feature_surfaces():
 
     assert ">Bags<" in html
     assert "Post Processing</button>" not in html
+    assert "Costmap</button>" not in html
+    assert 'data-tab-target="inspect-bandwidth"' not in html
+    assert 'data-tab-target="inspect-bags"' not in html
+    assert 'id="cloud-load"' not in html
 
     for element_id in (
         "feed-cloud",
         "feed-map",
         "feed-camera",
-        "feed-costmap",
         "feed-network",
         "feed-post-processing",
         "cloud-topic-select",
         "cloud-point-budget",
         "cloud-color-mode",
         "cloud-point-size",
+        "cloud-frame-select",
+        "cloud-frame-state",
         "cloud-stream",
         "cloud-stop",
-        "cloud-load",
         "cloud-canvas",
         "cloud-stats",
         "network-graph",
@@ -40,9 +44,6 @@ def test_dashboard_contains_primary_feature_surfaces():
         "camera-info-topic-select",
         "camera-canvas",
         "camera-stats",
-        "costmap-entity-select",
-        "costmap-topic-select",
-        "costmap-canvas",
         "command-target-select",
         "post-bag-select",
         "post-bag-metrics",
@@ -66,7 +67,6 @@ def test_server_exposes_core_api_routes():
         "/api/config",
         "/api/status",
         "/api/visual/topics",
-        "/api/visual/pointcloud-sample",
         "/api/visual/pointcloud-live",
         "/api/visual/camera-live",
         "/api/visual/costmap-live",
@@ -87,7 +87,6 @@ def test_dashboard_loads_visual_renderers():
     assert 'import { CameraViewer } from "./camera-viewer.js";' in app_js
     assert 'import { CostmapViewer } from "./costmap-viewer.js";' in app_js
     assert "/api/visual/topics" in app_js
-    assert "/api/visual/pointcloud-sample" in app_js
     assert "/api/visual/pointcloud-live" in app_js
     assert "/api/visual/camera-live" in app_js
     assert "/api/visual/costmap-live" in app_js
@@ -105,6 +104,8 @@ def test_dashboard_loads_visual_renderers():
     assert "Could not load bag inventory" in app_js
     assert "setColorMode" in app_js
     assert "setPointSize" in app_js
+    assert "setFixedFrame" in app_js
+    assert "renderTfFrames" in app_js
     assert "batteryTopicsForEntity" in app_js
     assert "entityFromTopicName" in app_js
     assert "visibleEntities" in app_js
@@ -116,6 +117,7 @@ def test_dashboard_loads_visual_renderers():
     assert "frameBounds" in pointcloud_js
     assert "bestFallbackProjection" in pointcloud_js
     assert "pointSize" in pointcloud_js
+    assert "fixedFrame" in pointcloud_js
     assert "autoOrbit" in pointcloud_js
     assert "stopAutoOrbit" in pointcloud_js
     assert "projectFallbackPoint" in pointcloud_js

@@ -52,7 +52,6 @@
             <button class="tab-button active" data-tab-target="feed-cloud" type="button">Cloud</button>
             <button class="tab-button" data-tab-target="feed-map" type="button">Map</button>
             <button class="tab-button" data-tab-target="feed-camera" type="button">Camera</button>
-            <button class="tab-button" data-tab-target="feed-costmap" type="button">Costmap</button>
             <button class="tab-button" data-tab-target="feed-network" type="button">Network</button>
             <button class="tab-button" data-tab-target="feed-post-processing" type="button">Bags</button>
           </nav>
@@ -103,14 +102,18 @@
                   <option value="8">8 px</option>
                 </select>
               </label>
+              <label>
+                <span>TF frame</span>
+                <select id="cloud-frame-select"></select>
+              </label>
               <button id="cloud-stream" type="button">Stream</button>
               <button id="cloud-stop" type="button">Stop</button>
-              <button id="cloud-load" type="button">Load</button>
               <button id="cloud-reset" type="button">Reset</button>
             </div>
             <canvas id="cloud-canvas" aria-label="Point cloud 3D viewport"></canvas>
             <div class="visual-hud">
               <span id="cloud-status">awaiting topic</span>
+              <span id="cloud-frame-state">frame: native</span>
               <span id="cloud-stats">0 pts · 0 fps</span>
             </div>
           </div>
@@ -152,24 +155,6 @@
             <div class="visual-hud">
               <span id="camera-status">awaiting topic</span>
               <span id="camera-stats">0 fps · 0 dropped</span>
-            </div>
-          </div>
-          <div id="feed-costmap" class="tab-panel visual-panel">
-            <div class="visual-toolbar">
-              <label>
-                <span>entity</span>
-                <select id="costmap-entity-select"></select>
-              </label>
-              <label>
-                <span>costmap</span>
-                <select id="costmap-topic-select"></select>
-              </label>
-              <button id="costmap-load" type="button">Stream</button>
-            </div>
-            <canvas id="costmap-canvas" aria-label="Costmap viewport"></canvas>
-            <div class="visual-hud">
-              <span id="costmap-status">awaiting costmap topic</span>
-              <span id="costmap-stats">navigation occupancy view</span>
             </div>
           </div>
           <div id="feed-network" class="tab-panel network-panel">
@@ -275,8 +260,6 @@
           <button class="tab-button active" data-tab-target="inspect-tools" type="button">Tools</button>
           <button class="tab-button" data-tab-target="inspect-nodes" type="button">Nodes</button>
           <button class="tab-button" data-tab-target="inspect-topics" type="button">Topics</button>
-          <button class="tab-button" data-tab-target="inspect-bandwidth" type="button">BW</button>
-          <button class="tab-button" data-tab-target="inspect-bags" type="button">Bags</button>
         </nav>
 
         <section id="inspect-tools" class="rail-block inspector-panel active">
@@ -297,15 +280,6 @@
           <div id="topics" class="chips"></div>
         </section>
 
-        <section id="inspect-bandwidth" class="rail-block inspector-panel">
-          <h2>Bandwidth</h2>
-          <div id="bandwidth" class="micro-list"></div>
-        </section>
-
-        <section id="inspect-bags" class="rail-block inspector-panel">
-          <h2>Trial Bags</h2>
-          <div id="bags" class="micro-list"></div>
-        </section>
       </aside>
 
     </main>

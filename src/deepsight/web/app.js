@@ -7,10 +7,10 @@ const state = {
   bags: [],
   selectedBagPath: null,
   visualTopics: { point_cloud: [], camera: [], costmap: [] },
+  tfFrames: [],
   cloudSocket: null,
   cameraSocket: null,
   mapSocket: null,
-  costmapSocket: null,
   commandTarget: "all",
   visibleEntities: [],
   networkHistory: new Map(),
@@ -143,17 +143,7 @@ function renderRos(ros) {
   nodes.replaceChildren(...(ros.nodes ?? []).map(chip));
   topics.replaceChildren(...(ros.topics ?? []).map(chip));
 
-  const bandwidth = $("#bandwidth");
-  bandwidth.replaceChildren();
-  for (const sample of ros.bandwidth ?? []) {
-    const row = document.createElement("div");
-    row.className = "row";
-    row.innerHTML = `
-      <div class="title"><strong>${sample.topic}</strong><span class="dot ${sample.ok ? "ok" : ""}"></span></div>
-      <span class="muted">${sample.sample || sample.error || "no sample"}</span>
-    `;
-    bandwidth.append(row);
-  }
+  renderTfFrames(ros.tf_frames ?? []);
 }
 
 function renderRosActivity(activity) {
@@ -510,6 +500,25 @@ function fillEntitySelect(select, entities) {
   select.value = [...select.options].some((option) => option.value === selected) ? selected : "all";
 }
 
+function renderTfFrames(frames) {
+  const select = $("#cloud-frame-select");
+  if (!select) return;
+  state.tfFrames = Array.from(new Set((frames ?? []).filter(Boolean))).sort();
+  const selected = select.value || "native";
+  select.replaceChildren(new Option("native frame", "native"));
+  for (const frame of state.tfFrames) {
+    select.append(new Option(frame, frame));
+  }
+  select.value = [...select.options].some((option) => option.value === selected) ? selected : "native";
+  updateCloudFrame();
+}
+
+function updateCloudFrame() {
+  const value = $("#cloud-frame-select")?.value || "native";
+  cloudViewer.setFixedFrame(value);
+  text("#cloud-frame-state", value === "native" ? "frame: native" : `frame: ${value}`);
+}
+
 function selectedTopic(topics, name) {
   return (topics ?? []).find((topic) => topic.name === name) ?? null;
 }
@@ -521,16 +530,13 @@ function renderVisualTopics(payload) {
   }
   fillEntitySelect($("#map-entity-select"), payload.entities ?? []);
   fillEntitySelect($("#camera-entity-select"), payload.entities ?? []);
-  fillEntitySelect($("#costmap-entity-select"), payload.entities ?? []);
   fillTopicSelect($("#cloud-topic-select"), payload.point_cloud ?? [], "no point cloud topics");
   fillTopicSelect($("#camera-topic-select"), payload.camera ?? [], "no camera topics", $("#camera-entity-select").value || "all");
   fillTopicSelect($("#camera-info-topic-select"), payload.camera_info ?? [], "no camera metadata topics", $("#camera-entity-select").value || "all");
   fillTopicSelect($("#map-topic-select"), payload.costmap ?? [], "no costmap topics", $("#map-entity-select").value || "all");
-  fillTopicSelect($("#costmap-topic-select"), payload.costmap ?? [], "no costmap topics", $("#costmap-entity-select").value || "all");
   $("#cloud-status").textContent = (payload.point_cloud ?? []).length ? "PointCloud2 topic available" : "no PointCloud2 topic detected";
   $("#camera-status").textContent = (payload.camera ?? []).length ? "camera topic available" : "no Image topic detected";
   $("#map-status").textContent = (payload.costmap ?? []).length ? "costmap topic available" : "no OccupancyGrid topic detected";
-  $("#costmap-status").textContent = (payload.costmap ?? []).length ? "costmap topic available" : "no OccupancyGrid topic detected";
   if (state.latest) {
     renderCommandTargets(state.latest);
   }
@@ -667,43 +673,6 @@ async function refreshPostProcessingStatus() {
   }
 }
 
-async function loadPointCloudSample(button) {
-  stopPointCloudStream("loading bag sample");
-  const bag = selectedBag();
-  const topic = $("#cloud-topic-select").value;
-  if (!bag || !topic) {
-    cloudViewer.clear("select a bag and PointCloud2 topic");
-    return;
-  }
-
-  button.disabled = true;
-  cloudViewer.clear("loading bag cloud...");
-  try {
-    const response = await fetch("/api/visual/pointcloud-sample", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        bag_path: bag.path,
-        topic,
-        max_points: Number.parseInt($("#cloud-point-budget").value, 10) || 50000,
-      }),
-    });
-    const payload = await response.json();
-    if (!payload.ok) {
-      cloudViewer.clear(payload.error || "could not load PointCloud2 sample");
-      return;
-    }
-    const points = Array.isArray(payload.points) ? payload.points : [];
-    cloudViewer.loadPoints(points);
-    $("#cloud-status").textContent = `${payload.topic} · ${points.length}/${payload.point_count} pts`;
-    $("#selected-cloud-topic").textContent = payload.topic;
-  } catch (error) {
-    cloudViewer.clear(`point cloud load failed: ${error.message}`);
-  } finally {
-    button.disabled = false;
-  }
-}
-
 function stopPointCloudStream(message = "stream stopped") {
   if (state.cloudSocket) {
     state.cloudSocket.close();
@@ -731,12 +700,10 @@ function stopVisualStreams() {
     cloud: Boolean(state.cloudSocket),
     camera: Boolean(state.cameraSocket),
     map: Boolean(state.mapSocket),
-    costmap: Boolean(state.costmapSocket),
   };
   stopPointCloudStream("stream stopped for ROS_DOMAIN_ID update");
   stopSocket("cameraSocket", $("#camera-status"), "stream stopped for ROS_DOMAIN_ID update");
   stopSocket("mapSocket", $("#map-status"), "stream stopped for ROS_DOMAIN_ID update");
-  stopSocket("costmapSocket", $("#costmap-status"), "stream stopped for ROS_DOMAIN_ID update");
   return wasStreaming;
 }
 
@@ -749,9 +716,6 @@ function restartVisualStreams(wasStreaming) {
   }
   if (wasStreaming.map && $("#map-topic-select").value) {
     startCostmapStream("#map-topic-select", "mapSocket", mapViewer, "#map-status");
-  }
-  if (wasStreaming.costmap && $("#costmap-topic-select").value) {
-    startCostmapStream("#costmap-topic-select", "costmapSocket", costmapViewer, "#costmap-status");
   }
 }
 
@@ -1001,15 +965,14 @@ on("#post-stop", "click", stopPostProcessingBag);
 const cloudViewer = new PointCloudViewer($("#cloud-canvas"), $("#cloud-stats"), $("#cloud-status"));
 const cameraViewer = new CameraViewer($("#camera-canvas"), $("#camera-stats"), $("#camera-status"));
 const mapViewer = new CostmapViewer($("#map-canvas"), $("#map-stats"), $("#map-status"), "map");
-const costmapViewer = new CostmapViewer($("#costmap-canvas"), $("#costmap-stats"), $("#costmap-status"), "costmap");
 if ($("#cloud-stop")) {
   $("#cloud-stop").disabled = true;
 }
 on("#cloud-point-budget", "change", (event) => cloudViewer.setBudget(event.target.value));
 on("#cloud-color-mode", "change", (event) => cloudViewer.setColorMode(event.target.value));
 on("#cloud-point-size", "change", (event) => cloudViewer.setPointSize(event.target.value));
+on("#cloud-frame-select", "change", updateCloudFrame);
 on("#cloud-reset", "click", () => cloudViewer.reset());
-on("#cloud-load", "click", (event) => loadPointCloudSample(event.target));
 on("#cloud-stream", "click", (event) => startPointCloudStream(event.target));
 on("#cloud-stop", "click", () => stopPointCloudStream());
 on("#cloud-topic-select", "change", (event) => {
@@ -1045,13 +1008,6 @@ on("#map-entity-select", "change", () => {
 });
 on("#map-load", "click", () => {
   startCostmapStream("#map-topic-select", "mapSocket", mapViewer, "#map-status");
-});
-on("#costmap-entity-select", "change", () => {
-  stopSocket("costmapSocket");
-  fillTopicSelect($("#costmap-topic-select"), state.visualTopics.costmap ?? [], "no costmap topics", $("#costmap-entity-select").value);
-});
-on("#costmap-load", "click", () => {
-  startCostmapStream("#costmap-topic-select", "costmapSocket", costmapViewer, "#costmap-status");
 });
 on("#command-target-select", "change", (event) => {
   state.commandTarget = event.target.value;

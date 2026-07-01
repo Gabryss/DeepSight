@@ -22,6 +22,7 @@ export class PointCloudViewer {
     this.buffer = null;
     this.locations = {};
     this.bounds = { minZ: -1, maxZ: 1, maxDistance: 1 };
+    this.fixedFrame = "native";
     this.hasFramed = false;
     this.animation = null;
     this.autoOrbit = true;
@@ -55,6 +56,11 @@ export class PointCloudViewer {
 
   setPointSize(value) {
     this.pointSize = Math.max(1, Math.min(12, Number.parseFloat(value) || 2));
+    this.drawFallback();
+  }
+
+  setFixedFrame(frame) {
+    this.fixedFrame = frame || "native";
     this.drawFallback();
   }
 
