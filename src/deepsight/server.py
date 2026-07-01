@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import struct
 import time
 from pathlib import Path
 
@@ -152,16 +153,28 @@ def create_app() -> FastAPI:
                 await websocket.send_json({"ok": False, "error": "point cloud stream stdout unavailable"})
                 return
             while True:
-                line = await process.stdout.readline()
-                if not line:
-                    stderr = ""
-                    if process.stderr is not None:
-                        stderr = (await process.stderr.read()).decode(errors="replace").strip()
-                    await websocket.send_json({"ok": False, "error": stderr or "point cloud stream stopped"})
+                header = await process.stdout.readexactly(4)
+                frame_size = struct.unpack(">I", header)[0]
+                if frame_size <= 0 or frame_size > 64_000_000:
+                    await websocket.send_json({"ok": False, "error": f"invalid point cloud frame size: {frame_size}"})
                     return
-                await websocket.send_text(line.decode(errors="replace"))
+                payload = await process.stdout.readexactly(frame_size)
+                await websocket.send_text(payload.decode(errors="replace"))
+        except asyncio.IncompleteReadError:
+            stderr = ""
+            if process.stderr is not None:
+                stderr = (await process.stderr.read()).decode(errors="replace").strip()
+            try:
+                await websocket.send_json({"ok": False, "error": stderr or "point cloud stream stopped"})
+            except RuntimeError:
+                return
         except WebSocketDisconnect:
             return
+        except ValueError as exc:
+            try:
+                await websocket.send_json({"ok": False, "error": str(exc)})
+            except RuntimeError:
+                return
         finally:
             if process.returncode is None:
                 process.terminate()

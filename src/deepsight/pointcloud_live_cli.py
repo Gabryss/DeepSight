@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 import json
+import struct
 import sys
 import time
 
 from deepsight.pointcloud import pointcloud2_to_points
+
+
+def encode_frame(payload: dict[str, object]) -> bytes:
+    body = json.dumps(payload, separators=(",", ":")).encode()
+    return struct.pack(">I", len(body)) + body
 
 
 def main() -> int:
@@ -41,19 +47,18 @@ def main() -> int:
         timestamp = None
         if stamp is not None:
             timestamp = int(stamp.sec) * 1_000_000_000 + int(stamp.nanosec)
-        print(
-            json.dumps(
+        sys.stdout.buffer.write(
+            encode_frame(
                 {
                     "ok": True,
                     "topic": topic,
                     "timestamp": timestamp,
                     "point_count": len(points),
                     "points": points,
-                },
-                separators=(",", ":"),
-            ),
-            flush=True,
+                }
+            )
         )
+        sys.stdout.buffer.flush()
 
     node.create_subscription(PointCloud2, topic, callback, qos_profile_sensor_data)
     try:
