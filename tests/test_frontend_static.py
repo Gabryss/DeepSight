@@ -36,6 +36,7 @@ def test_dashboard_contains_primary_feature_surfaces():
         "ros-activity",
         "ros-domain-id",
         "topics-refresh",
+        "inspect-output",
         "map-entity-select",
         "map-topic-select",
         "map-canvas",
@@ -102,6 +103,8 @@ def test_dashboard_loads_visual_renderers():
     assert "Loading bags..." in app_js
     assert "No bags found" in app_js
     assert "Could not load bag inventory" in app_js
+    assert "logOutput" in app_js
+    assert "typeConsoleQueue" in app_js
     assert "setColorMode" in app_js
     assert "setPointSize" in app_js
     assert "setFixedFrame" in app_js

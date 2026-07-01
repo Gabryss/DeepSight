@@ -35,11 +35,6 @@
           </div>
           <div id="commands" class="command-list"></div>
         </section>
-
-        <section class="rail-block side-output">
-          <h2>Output</h2>
-          <pre id="console-log" class="output">\&gt;</pre>
-        </section>
       </aside>
 
       <section class="center-stage" aria-label="Primary mission view">
@@ -260,6 +255,7 @@
           <button class="tab-button active" data-tab-target="inspect-tools" type="button">Tools</button>
           <button class="tab-button" data-tab-target="inspect-nodes" type="button">Nodes</button>
           <button class="tab-button" data-tab-target="inspect-topics" type="button">Topics</button>
+          <button class="tab-button" data-tab-target="inspect-output" type="button">Output</button>
         </nav>
 
         <section id="inspect-tools" class="rail-block inspector-panel active">
@@ -278,6 +274,11 @@
             <button id="topics-refresh" class="mini-button" type="button">Refresh</button>
           </div>
           <div id="topics" class="chips"></div>
+        </section>
+
+        <section id="inspect-output" class="rail-block inspector-panel output-panel">
+          <h2>Output</h2>
+          <pre id="console-log" class="output">\&gt;</pre>
         </section>
 
       </aside>

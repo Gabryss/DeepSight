@@ -951,6 +951,22 @@ pre {
   transform: none;
 }
 
+.output-panel {
+  min-height: 0;
+}
+
+.output-panel.active {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+}
+
+.output-panel .output {
+  min-height: 420px;
+  max-height: calc(100vh - 180px);
+  font-size: 10px;
+}
+
 .inspector-head {
   display: flex;
   align-items: center;
@@ -1004,8 +1020,7 @@ pre {
   font: inherit;
 }
 
-.side-console,
-.side-output {
+.side-console {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
 }
@@ -1025,11 +1040,6 @@ pre {
 
 .side-console .command button {
   width: 28px;
-}
-
-.side-output .output {
-  min-height: 0;
-  font-size: 9px;
 }
 
 .bottom-tabs {

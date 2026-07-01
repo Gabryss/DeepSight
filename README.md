@@ -56,7 +56,6 @@ The browser can only run configured command IDs. It cannot submit arbitrary shel
 - Allowlisted remote commands for rover restart, launch, bagging, and recovery.
 - Point cloud and camera visualization tabs with topic selectors, render budgets, and performance HUDs.
 - Live PointCloud2 streaming into the Cloud tab over a ROS-sourced WebSocket bridge.
-- PointCloud2 sample loading from configured ROS bags for the Cloud tab.
 - Bags tab for selecting a configured ROS bag, inspecting metadata, filtering topics, and starting/stopping `ros2 bag play`.
 - Playback state, progress, and log output for the active post-processing bag.
 - Required underground mission tool checklist with local availability status.
@@ -89,6 +88,6 @@ ROS topic discovery is cached separately from the main dashboard poll. Robot pin
 
 Changing the ROS domain from the dashboard updates the runtime `ROS_DOMAIN_ID`, restarts the ROS daemon, clears cached ROS/topic state, and reconnects active visual streams. If post-processing bag playback is active, DeepSight stops and restarts that playback with the same bag, topics, rate, and loop settings.
 
-The left rail contains compact mission links, battery rows, allowlisted commands, and command output. The footer ROS state shows when DeepSight is refreshing topics, starting playback, stopping playback, or restarting the ROS daemon. The Network tab uses compact state rows and a selectable bandwidth trend graph so text remains readable in the field UI.
+The left rail contains compact mission links, battery rows, and allowlisted commands. The right-side Output inspector shows command output and operational status as an incremental console log. The footer ROS state shows when DeepSight is refreshing topics, starting playback, stopping playback, or restarting the ROS daemon. The Network tab uses compact state rows and a selectable bandwidth trend graph so text remains readable in the field UI.
 
 The next integration step is to move high-rate visual streams from JSON payloads to binary WebSocket packets for lower CPU overhead during long missions.

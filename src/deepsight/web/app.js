@@ -18,6 +18,8 @@ const state = {
   previousPlaybackRunning: false,
   topicDiscoveryIntervalMs: 30000,
   topicDiscoveryTimer: null,
+  logQueue: [],
+  logTyping: false,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -33,6 +35,41 @@ function text(selector, value) {
   const element = $(selector);
   if (element) {
     element.textContent = value;
+  }
+}
+
+function timestamp() {
+  return new Date().toLocaleTimeString("en-GB", { hour12: false });
+}
+
+function typeConsoleQueue() {
+  const output = $("#console-log");
+  if (!output) {
+    state.logQueue = [];
+    state.logTyping = false;
+    return;
+  }
+  const next = state.logQueue.shift();
+  if (!next) {
+    state.logTyping = false;
+    return;
+  }
+  output.textContent += next;
+  output.scrollTop = output.scrollHeight;
+  window.setTimeout(typeConsoleQueue, next === "\n" ? 30 : 8);
+}
+
+function logOutput(message) {
+  const output = $("#console-log");
+  if (!output) return;
+  const line = `[${timestamp()}] ${message}\n`;
+  if (output.textContent.trim() === "\\>") {
+    output.textContent = "";
+  }
+  state.logQueue.push(...line.split(""));
+  if (!state.logTyping) {
+    state.logTyping = true;
+    typeConsoleQueue();
   }
 }
 
@@ -409,12 +446,12 @@ function renderBags(payload) {
   const metrics = $("#post-bag-metrics");
   const topicStats = $("#post-topic-stats");
   const topicsRoot = $("#post-topic-list");
-  root.replaceChildren();
+  root?.replaceChildren();
   if (!payload.available) {
     const row = document.createElement("div");
     row.className = "row";
     row.innerHTML = `<strong>Unavailable</strong><span class="muted">${payload.error}</span>`;
-    root.append(row);
+    root?.append(row);
     state.bags = [];
     if (select && summary && topicsRoot) {
       select.replaceChildren(new Option(`Unavailable: ${payload.error || "bag inventory failed"}`, ""));
@@ -442,7 +479,7 @@ function renderBags(payload) {
       <span class="muted">${topTopics || "no topics"}</span>
       <span class="muted">visual: ${(bag.capabilities?.visualizable ?? []).join(", ") || "none"} · missing: ${(bag.capabilities?.missing_for_full_monitoring ?? []).join(", ") || "none"}</span>
     `;
-    root.append(row);
+    root?.append(row);
   }
 
   state.bags = payload.bags ?? [];
@@ -450,7 +487,7 @@ function renderBags(payload) {
     const row = document.createElement("div");
     row.className = "row";
     row.innerHTML = `<strong>No bags found</strong><span class="muted">${payload.root || "bag_root"}</span>`;
-    root.append(row);
+    root?.append(row);
   }
   if (!state.selectedBagPath && state.bags.length) {
     state.selectedBagPath = state.bags[0].path;
@@ -603,6 +640,7 @@ async function refresh() {
 }
 
 async function refreshBags() {
+  logOutput("bag inventory: loading configured bag_root");
   const select = $("#post-bag-select");
   const summary = $("#post-bag-summary");
   if (select && !select.children.length) {
@@ -614,9 +652,12 @@ async function refreshBags() {
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
-    renderBags(await response.json());
+    const payload = await response.json();
+    renderBags(payload);
+    logOutput(`bag inventory: ${payload.bags?.length ?? 0} bag(s) loaded from ${payload.root || "unconfigured root"}`);
   } catch (error) {
     renderBags({ available: false, root: null, bags: [], error: error.message });
+    logOutput(`bag inventory: failed - ${error.message}`);
     if (summary) {
       summary.textContent = `Could not load bag inventory: ${error.message}`;
     }
@@ -836,9 +877,11 @@ async function playPostProcessingBag() {
   const bag = selectedBag();
   if (!bag) {
     $("#post-status").textContent = "No bag selected.";
+    logOutput("bag playback: no bag selected");
     return;
   }
   const topics = Array.from(document.querySelectorAll("#post-topic-list input:checked")).map((input) => input.value);
+  logOutput(`bag playback: starting ${bag.name} (${topics.length ? `${topics.length} filtered topic(s)` : "all topics"})`);
   const response = await fetch("/api/post-processing/play", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -851,19 +894,23 @@ async function playPostProcessingBag() {
   });
   const payload = await response.json();
   $("#post-status").textContent = payload.ok ? "playback started" : payload.error;
+  logOutput(payload.ok ? "bag playback: started" : `bag playback: failed - ${payload.error}`);
   await refreshPostProcessingStatus();
   await refreshVisualTopicsNow();
 }
 
 async function stopPostProcessingBag() {
+  logOutput("bag playback: stopping");
   const response = await fetch("/api/post-processing/stop", { method: "POST" });
   const payload = await response.json();
   $("#post-status").textContent = payload.ok ? "playback stopped" : payload.error;
+  logOutput(payload.ok ? "bag playback: stopped" : `bag playback: stop failed - ${payload.error}`);
   await refreshPostProcessingStatus();
   await refreshVisualTopicsNow();
 }
 
 async function setMode(mode) {
+  logOutput(`middleware: switching to ${mode.toUpperCase()}`);
   $("#mode-dds").classList.toggle("active", mode === "dds");
   $("#mode-zenoh").classList.toggle("active", mode === "zenoh");
   text("#mode-state", mode.toUpperCase());
@@ -874,7 +921,7 @@ async function setMode(mode) {
     body: JSON.stringify({ mode }),
   });
   const payload = await response.json();
-  $("#console-log").textContent = `middleware mode: ${payload.mode?.toUpperCase?.() ?? mode.toUpperCase()}`;
+  logOutput(`middleware: mode is ${payload.mode?.toUpperCase?.() ?? mode.toUpperCase()}`);
   await refresh();
 }
 
@@ -883,12 +930,12 @@ async function setRosDomain() {
   const rawValue = input.value.trim();
   const domainId = rawValue === "" ? null : Number.parseInt(rawValue, 10);
   if (rawValue !== "" && (!Number.isInteger(domainId) || domainId < 0 || domainId > 232)) {
-    $("#console-log").textContent = "ROS_DOMAIN_ID must be empty or an integer from 0 to 232.";
+    logOutput("ROS_DOMAIN_ID: value must be empty or an integer from 0 to 232");
     return;
   }
   const wasStreaming = stopVisualStreams();
   input.disabled = true;
-  $("#console-log").textContent = `setting ROS_DOMAIN_ID=${domainId ?? "unset"} and restarting ROS daemon...`;
+  logOutput(`ROS_DOMAIN_ID: setting ${domainId ?? "unset"} and restarting ROS daemon`);
   try {
     const response = await fetch("/api/ros-domain", {
       method: "POST",
@@ -896,7 +943,7 @@ async function setRosDomain() {
       body: JSON.stringify({ domain_id: domainId }),
     });
     const payload = await response.json();
-    $("#console-log").textContent = [
+    logOutput([
       `ROS_DOMAIN_ID=${payload.ros_domain_id ?? "unset"}`,
       `daemon stop: ${payload.daemon_stop ? "ok" : "failed"}`,
       `daemon start: ${payload.daemon_start ? "ok" : "failed"}`,
@@ -904,12 +951,12 @@ async function setRosDomain() {
       payload.playback_error ? `playback: ${payload.playback_error}` : "",
       payload.daemon_stdout,
       payload.daemon_stderr,
-    ].filter(Boolean).join("\n");
+    ].filter(Boolean).join("\n"));
     await refresh();
     await refreshVisualTopicsNow();
     restartVisualStreams(wasStreaming);
   } catch (error) {
-    $("#console-log").textContent = `ROS_DOMAIN_ID update failed: ${error.message}`;
+    logOutput(`ROS_DOMAIN_ID: update failed - ${error.message}`);
   } finally {
     input.disabled = false;
   }
@@ -917,8 +964,7 @@ async function setRosDomain() {
 
 async function runCommand(commandId, button) {
   button.disabled = true;
-  const output = $("#console-log");
-  output.textContent = "running...";
+  logOutput(`command ${commandId}: running`);
   try {
     const response = await fetch("/api/commands/run", {
       method: "POST",
@@ -926,11 +972,11 @@ async function runCommand(commandId, button) {
       body: JSON.stringify({ command_id: commandId }),
     });
     const result = await response.json();
-    output.textContent = [
+    logOutput([
       `${result.label}: ${result.ok ? "ok" : "failed"}`,
       result.stdout,
       result.stderr,
-    ].filter(Boolean).join("\n");
+    ].filter(Boolean).join("\n"));
   } finally {
     button.disabled = false;
   }
