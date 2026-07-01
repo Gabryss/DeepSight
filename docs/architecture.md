@@ -7,8 +7,10 @@ DeepSight/
   configs/
     mission.example.toml     # Field mission inventory and allowlisted commands
   docs/
+    assets/                  # README and documentation screenshots
     architecture.md          # Design and extension notes
     mission-tools.md         # Required mission tool checklist
+    screenshots.md           # Screenshot gallery
   src/deepsight/
     cli.py                   # `deepsight` command entrypoint
     config.py                # TOML config models
@@ -27,6 +29,8 @@ DeepSight/
 The dashboard is a local FastAPI server that serves a static browser UI. The backend does not import ROS client libraries. Instead, it executes bounded, allowlisted shell commands and ROS 2 CLI probes. This keeps the web server independent from ROS Python ABI issues and makes it usable from a normal field laptop shell.
 
 Configured commands are intentionally identified by `command_id`. The API does not accept arbitrary command text from the browser.
+
+The browser UI supports hash-linked panels such as `#feed-cloud`, `#feed-network`, `#feed-post-processing`, and `#inspect-output`. This makes documentation screenshots reproducible and gives operators direct links to specific dashboard surfaces.
 
 ## Dependencies
 

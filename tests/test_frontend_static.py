@@ -100,6 +100,8 @@ def test_dashboard_loads_visual_renderers():
     assert "drawNetworkGraph" in app_js
     assert "renderNetworkTopicPicker" in app_js
     assert "selectedNetworkTopics" in app_js
+    assert "activateHashTarget" in app_js
+    assert "hashchange" in app_js
     assert "Loading bags..." in app_js
     assert "No bags found" in app_js
     assert "Could not load bag inventory" in app_js

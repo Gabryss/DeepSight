@@ -2,6 +2,8 @@
 
 DeepSight is a local web dashboard for underground field robotics experiments. It gives an operator one page for robot connectivity, ROS graph status, TF checks, topic bandwidth, battery probes, DDS/Zenoh mode selection, and allowlisted remote commands.
 
+![DeepSight Cloud dashboard](docs/assets/deepsight-cloud.png)
+
 ## Quick Start
 
 ```bash
@@ -66,6 +68,17 @@ The browser can only run configured command IDs. It cannot submit arbitrary shel
 - [Architecture](docs/architecture.md)
 - [Underground mission tool checklist](docs/mission-tools.md)
 - [Mine Nider trial bag analysis](docs/trial-bag-analysis.md)
+- [Screenshot gallery](docs/screenshots.md)
+
+## Screenshots
+
+| Cloud | Network |
+| --- | --- |
+| ![Cloud point cloud panel](docs/assets/deepsight-cloud.png) | ![Network telemetry panel](docs/assets/deepsight-network.png) |
+
+| Bags | Output |
+| --- | --- |
+| ![Bag playback and filtering panel](docs/assets/deepsight-bags.png) | ![Operator output inspector](docs/assets/deepsight-output.png) |
 
 ## Development
 

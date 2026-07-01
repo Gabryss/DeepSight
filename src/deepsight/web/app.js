@@ -632,6 +632,18 @@ function activateTab(button) {
   scope.querySelectorAll(".tab-panel, .inspector-panel, .console-panel").forEach((panel) => {
     panel.classList.toggle("active", panel === target);
   });
+  if (location.hash !== `#${targetId}`) {
+    history.replaceState(null, "", `#${targetId}`);
+  }
+}
+
+function activateHashTarget() {
+  const targetId = location.hash.slice(1);
+  if (!targetId) return;
+  const button = document.querySelector(`[data-tab-target="${CSS.escape(targetId)}"]`);
+  if (button) {
+    activateTab(button);
+  }
 }
 
 async function refresh() {
@@ -992,6 +1004,8 @@ function connectLive() {
 document.querySelectorAll("[data-tab-target]").forEach((button) => {
   button.addEventListener("click", () => activateTab(button));
 });
+window.addEventListener("hashchange", activateHashTarget);
+activateHashTarget();
 
 on("#refresh", "click", () => {
   refresh();
