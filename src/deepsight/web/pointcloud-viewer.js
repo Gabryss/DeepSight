@@ -9,6 +9,7 @@ export class PointCloudViewer {
     this.points = [];
     this.budget = 200000;
     this.colorMode = 0;
+    this.pointSize = 2;
     this.frameCount = 0;
     this.lastFpsAt = performance.now();
     this.yaw = -0.7;
@@ -48,6 +49,11 @@ export class PointCloudViewer {
 
   setColorMode(mode) {
     this.colorMode = { distance: 0, height: 1, intensity: 2 }[mode] ?? 0;
+    this.drawFallback();
+  }
+
+  setPointSize(value) {
+    this.pointSize = Math.max(1, Math.min(12, Number.parseFloat(value) || 2));
     this.drawFallback();
   }
 
@@ -149,13 +155,14 @@ export class PointCloudViewer {
       uniform float minZ;
       uniform float maxZ;
       uniform float maxDistance;
+      uniform float pointSize;
       uniform int colorMode;
       varying float vMetric;
       varying float vIntensity;
       void main() {
         vec4 p = viewProjection * vec4(position, 1.0);
         gl_Position = p;
-        gl_PointSize = 2.0;
+        gl_PointSize = pointSize;
         float dist = length(position) / max(maxDistance, 0.001);
         float height = (position.z - minZ) / max(maxZ - minZ, 0.001);
         vMetric = colorMode == 1 ? height : (colorMode == 2 ? intensity : dist);
@@ -186,6 +193,7 @@ export class PointCloudViewer {
     this.locations.minZ = this.gl.getUniformLocation(this.program, "minZ");
     this.locations.maxZ = this.gl.getUniformLocation(this.program, "maxZ");
     this.locations.maxDistance = this.gl.getUniformLocation(this.program, "maxDistance");
+    this.locations.pointSize = this.gl.getUniformLocation(this.program, "pointSize");
     this.locations.colorMode = this.gl.getUniformLocation(this.program, "colorMode");
     this.gl.enable(this.gl.BLEND);
     this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
@@ -327,7 +335,9 @@ export class PointCloudViewer {
       }
       const color = this.fallbackColor(point);
       this.context2d.fillStyle = color;
-      this.context2d.fillRect(Math.round(x) - 2, Math.round(y) - 2, 5, 5);
+      const size = Math.max(1, Math.round(this.pointSize));
+      const offset = Math.floor(size / 2);
+      this.context2d.fillRect(Math.round(x) - offset, Math.round(y) - offset, size, size);
       drawn += 1;
     }
     if (drawn === 0) {
@@ -432,6 +442,7 @@ export class PointCloudViewer {
     this.gl.uniform1f(this.locations.minZ, this.bounds.minZ);
     this.gl.uniform1f(this.locations.maxZ, this.bounds.maxZ);
     this.gl.uniform1f(this.locations.maxDistance, this.bounds.maxDistance);
+    this.gl.uniform1f(this.locations.pointSize, this.pointSize);
     this.gl.uniform1i(this.locations.colorMode, this.colorMode);
     this.gl.drawArrays(this.gl.POINTS, 0, this.pointCount);
     this.frameCount += 1;

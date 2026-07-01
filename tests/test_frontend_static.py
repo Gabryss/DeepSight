@@ -16,6 +16,7 @@ def test_dashboard_contains_primary_feature_surfaces():
         "cloud-topic-select",
         "cloud-point-budget",
         "cloud-color-mode",
+        "cloud-point-size",
         "cloud-stream",
         "cloud-stop",
         "cloud-load",
@@ -88,6 +89,7 @@ def test_dashboard_loads_visual_renderers():
     assert "No bags found" in app_js
     assert "Could not load bag inventory" in app_js
     assert "setColorMode" in app_js
+    assert "setPointSize" in app_js
     assert "entityFromTopicName" in app_js
     assert "visibleEntities" in app_js
     assert "GLOBAL_TOPIC_NAMES" in app_js
@@ -97,5 +99,6 @@ def test_dashboard_loads_visual_renderers():
     assert "2D fallback" in pointcloud_js
     assert "frameBounds" in pointcloud_js
     assert "bestFallbackProjection" in pointcloud_js
+    assert "pointSize" in pointcloud_js
     assert "drawn" in pointcloud_js
     assert "none projected into view" in pointcloud_js

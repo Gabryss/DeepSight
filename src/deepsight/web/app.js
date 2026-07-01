@@ -845,6 +845,7 @@ if ($("#cloud-stop")) {
 }
 on("#cloud-point-budget", "change", (event) => cloudViewer.setBudget(event.target.value));
 on("#cloud-color-mode", "change", (event) => cloudViewer.setColorMode(event.target.value));
+on("#cloud-point-size", "change", (event) => cloudViewer.setPointSize(event.target.value));
 on("#cloud-reset", "click", () => cloudViewer.reset());
 on("#cloud-load", "click", (event) => loadPointCloudSample(event.target));
 on("#cloud-stream", "click", (event) => startPointCloudStream(event.target));
