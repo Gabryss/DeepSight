@@ -49,9 +49,9 @@ def test_cached_mission_snapshot_reuses_recent_payload(monkeypatch, tmp_path):
     monkeypatch.setenv("DEEPSIGHT_CONFIG", str(config_path))
     calls = []
 
-    def fake_snapshot(config, mode):
-        calls.append(mode)
-        return {"mode": mode, "count": len(calls)}
+    def fake_snapshot(config, mode, ros_payload=None):
+        calls.append((mode, ros_payload))
+        return {"mode": mode, "ros": ros_payload, "count": len(calls)}
 
     monkeypatch.setattr(server, "_mission_snapshot", fake_snapshot)
     app = server.create_app()
@@ -61,6 +61,57 @@ def test_cached_mission_snapshot_reuses_recent_payload(monkeypatch, tmp_path):
 
     assert first == second
     assert len(calls) == 1
+
+
+def test_ros_snapshot_cache_uses_topic_discovery_interval(monkeypatch, tmp_path):
+    config_path = tmp_path / "mission.toml"
+    config_path.write_text(
+        "[mission]\nname = \"API Test\"\ntopic_discovery_interval_sec = 30\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("DEEPSIGHT_CONFIG", str(config_path))
+    calls = []
+
+    def fake_ros_snapshot(config):
+        calls.append(config.mission.name)
+        return {"available": True, "topics": [f"/topic_{len(calls)}"], "nodes": [], "bandwidth": []}
+
+    monkeypatch.setattr(server, "ros_snapshot", fake_ros_snapshot)
+    app = server.create_app()
+
+    first = server._cached_ros_snapshot(app, app.state.config)
+    second = server._cached_ros_snapshot(app, app.state.config)
+    refreshed = server._cached_ros_snapshot(app, app.state.config, force=True)
+
+    assert first == second
+    assert refreshed["topics"] == ["/topic_2"]
+    assert len(calls) == 2
+
+
+def test_visual_topics_cache_uses_topic_discovery_interval(monkeypatch, tmp_path):
+    config_path = tmp_path / "mission.toml"
+    config_path.write_text(
+        "[mission]\nname = \"API Test\"\ntopic_discovery_interval_sec = 60\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("DEEPSIGHT_CONFIG", str(config_path))
+    calls = []
+
+    def fake_visual_topics(config):
+        calls.append(config.mission.name)
+        return {"point_cloud": [{"name": f"/cloud_{len(calls)}"}], "available": True}
+
+    monkeypatch.setattr(server, "visual_topics", fake_visual_topics)
+    app = server.create_app()
+
+    first = server._cached_visual_topics(app, app.state.config)
+    second = server._cached_visual_topics(app, app.state.config)
+    refreshed = server._cached_visual_topics(app, app.state.config, force=True)
+
+    assert first == second
+    assert first["next_refresh_sec"] == 60
+    assert refreshed["point_cloud"][0]["name"] == "/cloud_2"
+    assert len(calls) == 2
 
 
 def test_invalidate_snapshot_cache_clears_cached_payload(monkeypatch, tmp_path):

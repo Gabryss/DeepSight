@@ -12,6 +12,8 @@ const state = {
   mapSocket: null,
   costmapSocket: null,
   commandTarget: "all",
+  topicDiscoveryIntervalMs: 30000,
+  topicDiscoveryTimer: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -310,6 +312,9 @@ function selectedTopic(topics, name) {
 
 function renderVisualTopics(payload) {
   state.visualTopics = payload;
+  if (payload.next_refresh_sec) {
+    scheduleTopicDiscovery(payload.next_refresh_sec);
+  }
   fillEntitySelect($("#map-entity-select"), payload.entities ?? []);
   fillEntitySelect($("#camera-entity-select"), payload.entities ?? []);
   fillEntitySelect($("#costmap-entity-select"), payload.entities ?? []);
@@ -394,6 +399,23 @@ async function refreshBags() {
 async function refreshVisualTopics() {
   const response = await fetch("/api/visual/topics");
   renderVisualTopics(await response.json());
+}
+
+async function refreshVisualTopicsNow() {
+  const response = await fetch("/api/visual/topics?refresh=true");
+  renderVisualTopics(await response.json());
+}
+
+function scheduleTopicDiscovery(intervalSec) {
+  const nextMs = Math.max(5000, Number(intervalSec || 30) * 1000);
+  if (state.topicDiscoveryTimer && state.topicDiscoveryIntervalMs === nextMs) {
+    return;
+  }
+  if (state.topicDiscoveryTimer) {
+    clearInterval(state.topicDiscoveryTimer);
+  }
+  state.topicDiscoveryIntervalMs = nextMs;
+  state.topicDiscoveryTimer = setInterval(refreshVisualTopics, nextMs);
 }
 
 async function refreshPostProcessingStatus() {
@@ -653,7 +675,10 @@ function connectLive() {
   socket.addEventListener("close", () => setTimeout(connectLive, 3000));
 }
 
-$("#refresh").addEventListener("click", refresh);
+$("#refresh").addEventListener("click", () => {
+  refresh();
+  refreshVisualTopicsNow();
+});
 $("#mode-dds").addEventListener("click", () => setMode("dds"));
 $("#mode-zenoh").addEventListener("click", () => setMode("zenoh"));
 $("#post-bag-select").addEventListener("change", (event) => {

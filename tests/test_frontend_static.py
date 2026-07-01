@@ -77,5 +77,7 @@ def test_dashboard_loads_visual_renderers():
     assert "/api/visual/pointcloud-live" in app_js
     assert "/api/visual/camera-live" in app_js
     assert "/api/visual/costmap-live" in app_js
+    assert "scheduleTopicDiscovery" in app_js
+    assert "/api/visual/topics?refresh=true" in app_js
     assert "setColorMode" in app_js
     assert "entityFromTopicName" in app_js

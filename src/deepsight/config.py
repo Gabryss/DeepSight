@@ -12,6 +12,7 @@ class Mission(BaseModel):
     operator: str = "operator"
     ros_setup: str | None = None
     poll_interval_sec: float = 2.0
+    topic_discovery_interval_sec: float = 30.0
     bag_root: str | None = None
 
 

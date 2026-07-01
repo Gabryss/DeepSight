@@ -10,6 +10,7 @@ def test_load_config_reads_mission_file(tmp_path):
         [mission]
         name = "Test Mission"
         ros_setup = "/opt/ros/jazzy/setup.bash"
+        topic_discovery_interval_sec = 45
 
         [server]
         host = "0.0.0.0"
@@ -31,6 +32,7 @@ def test_load_config_reads_mission_file(tmp_path):
     config = load_config(config_path)
 
     assert config.mission.name == "Test Mission"
+    assert config.mission.topic_discovery_interval_sec == 45
     assert config.server.host == "0.0.0.0"
     assert config.server.port == 9000
     assert config.robots[0].id == "rover"

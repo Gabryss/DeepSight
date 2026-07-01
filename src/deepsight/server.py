@@ -100,16 +100,47 @@ def _tool_status(config: AppConfig) -> list[dict[str, object]]:
     return status
 
 
-def _mission_snapshot(config: AppConfig, middleware_mode: str) -> dict[str, object]:
+def _mission_snapshot(config: AppConfig, middleware_mode: str, ros_payload: dict[str, object] | None = None) -> dict[str, object]:
     return {
         "mission": config.mission.model_dump(),
         "middleware_mode": middleware_mode,
         "tools": _tool_status(config),
         "robots": robot_connectivity(config),
         "batteries": robot_batteries(config),
-        "ros": ros_snapshot(config),
+        "ros": ros_payload if ros_payload is not None else ros_snapshot(config),
         "commands": [command.model_dump(exclude={"command"}) for command in config.commands],
     }
+
+
+def _topic_discovery_ttl(config: AppConfig) -> float:
+    return max(5.0, config.mission.topic_discovery_interval_sec)
+
+
+def _cached_ros_snapshot(app: FastAPI, config: AppConfig, force: bool = False) -> dict[str, object]:
+    now = time.monotonic()
+    cached_at = getattr(app.state, "ros_cached_at", 0.0)
+    cached_payload = getattr(app.state, "ros_cache", None)
+    if not force and cached_payload is not None and now - cached_at < _topic_discovery_ttl(config):
+        return cached_payload
+
+    payload = ros_snapshot(config)
+    app.state.ros_cache = payload
+    app.state.ros_cached_at = now
+    return payload
+
+
+def _cached_visual_topics(app: FastAPI, config: AppConfig, force: bool = False) -> dict[str, object]:
+    now = time.monotonic()
+    cached_at = getattr(app.state, "visual_topics_cached_at", 0.0)
+    cached_payload = getattr(app.state, "visual_topics_cache", None)
+    if not force and cached_payload is not None and now - cached_at < _topic_discovery_ttl(config):
+        return cached_payload
+
+    payload = visual_topics(config)
+    payload["next_refresh_sec"] = _topic_discovery_ttl(config)
+    app.state.visual_topics_cache = payload
+    app.state.visual_topics_cached_at = now
+    return payload
 
 
 def _cached_mission_snapshot(app: FastAPI, config: AppConfig) -> dict[str, object]:
@@ -120,7 +151,8 @@ def _cached_mission_snapshot(app: FastAPI, config: AppConfig) -> dict[str, objec
     if cached_payload is not None and now - cached_at < ttl:
         return cached_payload
 
-    payload = _mission_snapshot(config, app.state.middleware_mode)
+    ros_payload = _cached_ros_snapshot(app, config)
+    payload = _mission_snapshot(config, app.state.middleware_mode, ros_payload)
     app.state.snapshot_cache = payload
     app.state.snapshot_cached_at = now
     return payload
@@ -139,6 +171,10 @@ def create_app() -> FastAPI:
     app.state.middleware_mode = "dds"
     app.state.snapshot_cache = None
     app.state.snapshot_cached_at = 0.0
+    app.state.ros_cache = None
+    app.state.ros_cached_at = 0.0
+    app.state.visual_topics_cache = None
+    app.state.visual_topics_cached_at = 0.0
     app.state.bag_playback = BagPlayback()
 
     @app.get("/api/health")
@@ -163,8 +199,8 @@ def create_app() -> FastAPI:
         return await asyncio.to_thread(bag_inventory, config)
 
     @app.get("/api/visual/topics")
-    async def visual_topic_list() -> dict[str, object]:
-        return await asyncio.to_thread(visual_topics, config)
+    async def visual_topic_list(refresh: bool = Query(default=False)) -> dict[str, object]:
+        return await asyncio.to_thread(_cached_visual_topics, app, config, refresh)
 
     @app.post("/api/visual/pointcloud-sample")
     async def visual_pointcloud_sample(request: PointCloudSampleRequest) -> dict[str, object]:
