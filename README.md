@@ -8,10 +8,16 @@ DeepSight is a local web dashboard for underground field robotics experiments. I
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
-deepsight --config configs/mission.example.toml --host 127.0.0.1 --port 8766
+./run_deepsight.sh
 ```
 
 Open http://127.0.0.1:8766.
+
+Override launch settings with environment variables:
+
+```bash
+DEEPSIGHT_CONFIG=configs/mission.example.toml DEEPSIGHT_HOST=0.0.0.0 DEEPSIGHT_PORT=8766 ./run_deepsight.sh
+```
 
 DeepSight automatically sources `[mission].ros_setup` for ROS commands, so a plain shell can start the server as long as the configured setup file exists.
 
