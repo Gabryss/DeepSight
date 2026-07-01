@@ -50,7 +50,7 @@ The browser can only run configured command IDs. It cannot submit arbitrary shel
 ## Core Features
 
 - Live robot ping checks in the background.
-- ROS 2 topic, node, service, TF, and bandwidth snapshots.
+- ROS 2 graph snapshots for topics, nodes, services, and TF status using a resident graph monitor when `rclpy` is available.
 - Battery probe hooks per robot.
 - DDS/Zenoh mode indicator for mission coordination.
 - Allowlisted remote commands for rover restart, launch, bagging, and recovery.
@@ -84,7 +84,7 @@ The Cloud tab uses a canvas 3D renderer with a configurable max-points cap and p
 
 Select a configured bag in Bags, choose a PointCloud2 topic in the Cloud tab, then stream it into the optimized 3D canvas with the desired point budget, color mode, point size, and TF frame reference. The Camera tab streams selected `sensor_msgs/msg/Image` or `sensor_msgs/msg/CompressedImage` topics and includes a camera metadata topic selector. The Map tab streams selected `nav_msgs/msg/OccupancyGrid` topics into a top-down canvas view. Topic selectors are populated from live ROS topic types when `ros2 topic list -t` is available and from configured bag metadata otherwise.
 
-ROS topic discovery is cached separately from the main dashboard poll. Robot ping and battery state can update every few seconds, while topic selectors and ROS graph counts refresh on `[mission].topic_discovery_interval_sec` to avoid putting unnecessary DDS discovery traffic on an underground field network. The dashboard refresh button and the Topics inspector refresh button force one immediate topic discovery pass. Starting, stopping, finishing, or restarting bag playback invalidates the ROS graph cache so newly published topics appear promptly.
+ROS topic discovery is cached separately from the main dashboard poll. When `rclpy` is available, DeepSight starts a long-lived graph monitor node and updates the cached graph from ROS 2 graph events instead of repeatedly spawning `ros2 topic list`. Robot ping and battery state can update every few seconds, while visual topic selectors reuse the cached graph and bag metadata. The dashboard refresh button and the Topics inspector refresh button force one immediate graph snapshot. Starting, stopping, finishing, or restarting bag playback invalidates the graph cache so newly published topics appear promptly. If the graph monitor cannot start, DeepSight falls back to the older CLI polling path.
 
 Changing the ROS domain from the dashboard updates the runtime `ROS_DOMAIN_ID`, restarts the ROS daemon, clears cached ROS/topic state, and reconnects active visual streams. If post-processing bag playback is active, DeepSight stops and restarts that playback with the same bag, topics, rate, and loop settings.
 

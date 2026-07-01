@@ -94,6 +94,37 @@ def test_ros_snapshot_cache_uses_topic_discovery_interval(monkeypatch, tmp_path)
     assert len(calls) == 2
 
 
+def test_ros_snapshot_cache_prefers_graph_monitor(monkeypatch, tmp_path):
+    config_path = tmp_path / "mission.toml"
+    config_path.write_text("[mission]\nname = \"API Test\"\n", encoding="utf-8")
+    monkeypatch.setenv("DEEPSIGHT_CONFIG", str(config_path))
+
+    class FakeGraphMonitor:
+        available = True
+
+        def __init__(self):
+            self.refresh_count = 0
+
+        def snapshot(self):
+            return {"available": True, "topics": ["/cached"], "nodes": [], "bandwidth": [], "source": "rclpy_graph_event"}
+
+        def refresh(self):
+            self.refresh_count += 1
+            return {"available": True, "topics": ["/refreshed"], "nodes": [], "bandwidth": [], "source": "rclpy_graph_event"}
+
+    monkeypatch.setattr(server, "ros_snapshot", lambda config: pytest.fail("CLI fallback should not run"))
+    app = server.create_app()
+    monitor = FakeGraphMonitor()
+    app.state.graph_monitor = monitor
+
+    cached = server._cached_ros_snapshot(app, app.state.config)
+    refreshed = server._cached_ros_snapshot(app, app.state.config, force=True)
+
+    assert cached["topics"] == ["/cached"]
+    assert refreshed["topics"] == ["/refreshed"]
+    assert monitor.refresh_count == 1
+
+
 def test_visual_topics_cache_uses_topic_discovery_interval(monkeypatch, tmp_path):
     config_path = tmp_path / "mission.toml"
     config_path.write_text(
@@ -103,7 +134,7 @@ def test_visual_topics_cache_uses_topic_discovery_interval(monkeypatch, tmp_path
     monkeypatch.setenv("DEEPSIGHT_CONFIG", str(config_path))
     calls = []
 
-    def fake_visual_topics(config):
+    def fake_visual_topics(config, live_topics=None):
         calls.append(config.mission.name)
         return {"point_cloud": [{"name": f"/cloud_{len(calls)}"}], "available": True}
 

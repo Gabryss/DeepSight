@@ -19,6 +19,20 @@ def test_parse_ros_topic_types_classifies_visual_topics():
     assert payload[0].type == "sensor_msgs/msg/PointCloud2"
 
 
+def test_graph_visual_topics_classifies_cached_topic_types():
+    payload = visual.graph_visual_topics(
+        {
+            "/leo05/livox/lidar": ["sensor_msgs/msg/PointCloud2"],
+            "/leo05/front/image": ["sensor_msgs/msg/Image"],
+        }
+    )
+
+    assert [(topic.name, topic.type, topic.source) for topic in payload] == [
+        ("/leo05/livox/lidar", "sensor_msgs/msg/PointCloud2", "live"),
+        ("/leo05/front/image", "sensor_msgs/msg/Image", "live"),
+    ]
+
+
 def test_visual_topics_merges_live_and_bag_topics(monkeypatch, tmp_path):
     bag_dir = tmp_path / "bag"
     bag_dir.mkdir()

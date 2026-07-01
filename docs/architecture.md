@@ -13,7 +13,8 @@ DeepSight/
     cli.py                   # `deepsight` command entrypoint
     config.py                # TOML config models
     network.py               # Robot ping and battery probes
-    ros.py                   # ROS graph and bandwidth probes
+    graph_monitor.py         # Resident rclpy graph-event cache
+    ros.py                   # CLI fallback ROS graph and bandwidth probes
     runner.py                # Bounded command execution helpers
     server.py                # FastAPI app and WebSocket
     tools.py                 # Required tool catalog
@@ -52,5 +53,5 @@ System and robot dependencies:
 - Add battery commands per robot with `battery_command`.
 - Set `[mission].bag_root` to a ROS bag directory to populate the dashboard bag inventory.
 - Use the Bags tab to select a known bag, filter playback by recorded topics, and start or stop `ros2 bag play`.
-- Extend `src/deepsight/ros.py` for actions, lifecycle nodes, parameters, or costmap summaries.
+- Extend `src/deepsight/graph_monitor.py` for cheap graph-derived state, and `src/deepsight/ros.py` only for CLI fallback or explicit operator probes.
 - Add authenticated reverse proxying before exposing the dashboard beyond localhost.

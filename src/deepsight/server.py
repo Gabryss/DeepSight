@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import struct
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
@@ -12,13 +13,14 @@ from pydantic import BaseModel, Field
 
 from deepsight.bags import bag_inventory
 from deepsight.config import AppConfig, load_config
+from deepsight.graph_monitor import GraphMonitor
 from deepsight.network import robot_batteries, robot_connectivity
 from deepsight.pointcloud import pointcloud_sample, ros_python_module_command
 from deepsight.postprocessing import BagPlayback, start_bag_playback, stop_bag_playback
 from deepsight.ros import ros_snapshot
 from deepsight.runner import command_available, find_command, run_shell_command_async, start_background_command_async
 from deepsight.tools import MISSION_TOOLS, mission_tools_payload
-from deepsight.visual import visible_entities_from_topics, visual_topics
+from deepsight.visual import graph_visual_topics, visible_entities_from_topics, visual_topics
 
 
 class CommandRequest(BaseModel):
@@ -138,6 +140,18 @@ def _topic_discovery_ttl(config: AppConfig) -> float:
 
 
 def _cached_ros_snapshot(app: FastAPI, config: AppConfig, force: bool = False) -> dict[str, object]:
+    graph_monitor = getattr(app.state, "graph_monitor", None)
+    if graph_monitor is not None and graph_monitor.available:
+        if force:
+            _set_ros_activity(app, "updating", "refreshing ROS graph event cache")
+            payload = graph_monitor.refresh()
+        else:
+            payload = graph_monitor.snapshot()
+        app.state.ros_cache = payload
+        app.state.ros_cached_at = time.monotonic()
+        _set_ros_activity(app, "idle" if payload.get("available") else "missing", "ROS graph event cache ready" if payload.get("available") else str(payload.get("error") or "ros unavailable"))
+        return payload
+
     now = time.monotonic()
     cached_at = getattr(app.state, "ros_cached_at", 0.0)
     cached_payload = getattr(app.state, "ros_cache", None)
@@ -160,7 +174,11 @@ def _cached_visual_topics(app: FastAPI, config: AppConfig, force: bool = False) 
         return cached_payload
 
     _set_ros_activity(app, "updating", "refreshing visual topics")
-    payload = visual_topics(config)
+    ros_payload = _cached_ros_snapshot(app, config, force=force)
+    live_topics = None
+    if ros_payload.get("topic_types"):
+        live_topics = graph_visual_topics(ros_payload.get("topic_types", {}))  # type: ignore[arg-type]
+    payload = visual_topics(config, live_topics=live_topics)
     payload["next_refresh_sec"] = _topic_discovery_ttl(config)
     app.state.visual_topics_cache = payload
     app.state.visual_topics_cached_at = now
@@ -205,9 +223,14 @@ async def _restart_ros_runtime(app: FastAPI, config: AppConfig) -> dict[str, obj
         await asyncio.to_thread(stop_bag_playback, app.state.bag_playback)
 
     _set_ros_activity(app, "daemon_stopped", "stopping ROS daemon")
+    graph_monitor = getattr(app.state, "graph_monitor", None)
+    if graph_monitor is not None:
+        graph_monitor.stop()
     stop_result = await run_shell_command_async("ros2 daemon stop", 8, config)
     _set_ros_activity(app, "starting", "starting ROS daemon")
     start_result = await run_shell_command_async("ros2 daemon start", 8, config)
+    if graph_monitor is not None:
+        graph_monitor.start()
     _invalidate_snapshot_cache(app)
 
     replay_result: dict[str, object] | None = None
@@ -229,7 +252,16 @@ async def _restart_ros_runtime(app: FastAPI, config: AppConfig) -> dict[str, obj
 def create_app() -> FastAPI:
     config = load_config()
     static_dir = Path(__file__).parent / "web"
-    app = FastAPI(title="DeepSight", version="0.1.0")
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        app.state.graph_monitor.start()
+        try:
+            yield
+        finally:
+            app.state.graph_monitor.stop()
+
+    app = FastAPI(title="DeepSight", version="0.1.0", lifespan=lifespan)
     app.state.config = config
     app.state.middleware_mode = "dds"
     app.state.snapshot_cache = None
@@ -241,6 +273,7 @@ def create_app() -> FastAPI:
     app.state.bag_playback = BagPlayback()
     app.state.last_playback_running = False
     app.state.ros_activity = {"state": "idle", "detail": "ready", "updated_at": time.time()}
+    app.state.graph_monitor = GraphMonitor(config)
 
     @app.get("/api/health")
     async def health() -> dict[str, object]:

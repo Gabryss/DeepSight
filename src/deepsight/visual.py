@@ -71,9 +71,19 @@ def live_visual_topics(config: AppConfig) -> list[VisualTopic]:
     return _parse_ros_topic_types(result.stdout)
 
 
-def visual_topics(config: AppConfig) -> dict[str, object]:
+def graph_visual_topics(topic_types: dict[str, object]) -> list[VisualTopic]:
+    topics = []
+    for name, raw_types in topic_types.items():
+        types = raw_types if isinstance(raw_types, list | tuple | set) else [raw_types]
+        for topic_type in types:
+            if name and topic_type:
+                topics.append(VisualTopic(str(name), str(topic_type), "live"))
+    return topics
+
+
+def visual_topics(config: AppConfig, live_topics: list[VisualTopic] | None = None) -> dict[str, object]:
     topics: dict[tuple[str, str, str], VisualTopic] = {}
-    for topic in live_visual_topics(config):
+    for topic in live_topics if live_topics is not None else live_visual_topics(config):
         topics[(topic.source, topic.name, topic.type)] = topic
     for topic in _bag_visual_topics(config):
         topics[(topic.source, topic.name, topic.type)] = topic
