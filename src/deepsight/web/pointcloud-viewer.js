@@ -3,8 +3,8 @@ export class PointCloudViewer {
     this.canvas = canvas;
     this.statsNode = statsNode;
     this.statusNode = statusNode;
-    this.gl = canvas.getContext("webgl", { antialias: false, alpha: true, powerPreference: "high-performance" });
-    this.context2d = this.gl ? null : canvas.getContext("2d", { alpha: false });
+    this.context2d = canvas.getContext("2d", { alpha: false });
+    this.gl = null;
     this.pointCount = 0;
     this.points = [];
     this.budget = 200000;
@@ -36,7 +36,7 @@ export class PointCloudViewer {
         this.setStatus(`webgl init failed: ${error.message}`);
       }
     } else {
-      this.clear("webgl unavailable; using 2D fallback");
+      this.clear("canvas 3D renderer ready");
     }
   }
 
@@ -231,8 +231,21 @@ export class PointCloudViewer {
   }
 
   loadPoints(points, message = "cloud loaded") {
-    const count = Math.min(points.length, this.budget);
-    this.points = points.slice(0, count);
+    const sourcePoints = Array.isArray(points) ? points : [];
+    const validPoints = [];
+    for (const point of sourcePoints) {
+      if (
+        Array.isArray(point)
+        && Number.isFinite(point[0])
+        && Number.isFinite(point[1])
+        && Number.isFinite(point[2])
+      ) {
+        validPoints.push(point);
+      }
+      if (validPoints.length >= this.budget) break;
+    }
+    const count = validPoints.length;
+    this.points = validPoints;
     const data = new Float32Array(count * 4);
     let minX = Infinity;
     let maxX = -Infinity;
@@ -280,6 +293,7 @@ export class PointCloudViewer {
       this.start();
     } else {
       this.drawFallback();
+      this.start();
     }
     this.setStatus(message);
   }
@@ -325,20 +339,14 @@ export class PointCloudViewer {
       return;
     }
 
-    const projection = this.bestFallbackProjection();
-    const spanA = Math.max(0.001, projection.maxA - projection.minA);
-    const spanB = Math.max(0.001, projection.maxB - projection.minB);
-    const scale = Math.min(this.canvas.width / spanA, this.canvas.height / spanB) * 0.84;
-    const centerA = (projection.minA + projection.maxA) / 2;
-    const centerB = (projection.minB + projection.maxB) / 2;
+    const viewport = this.fallbackViewport();
     const stride = Math.max(1, Math.ceil(this.points.length / 50000));
     let drawn = 0;
     for (let index = 0; index < this.points.length; index += stride) {
       const point = this.points[index];
-      const a = Math.max(projection.minA, Math.min(projection.maxA, point[projection.axisA]));
-      const b = Math.max(projection.minB, Math.min(projection.maxB, point[projection.axisB]));
-      const x = this.canvas.width / 2 + (a - centerA) * scale;
-      const y = this.canvas.height / 2 - (b - centerB) * scale;
+      const projected = this.projectFallbackPoint(point, viewport);
+      if (!projected) continue;
+      const { x, y } = projected;
       if (x < -4 || y < -4 || x > this.canvas.width + 4 || y > this.canvas.height + 4) {
         continue;
       }
@@ -354,7 +362,35 @@ export class PointCloudViewer {
       this.context2d.font = `${Math.max(14, Math.round(this.canvas.height * 0.018))}px monospace`;
       this.context2d.fillText("received points, but none projected into view", 18, 32);
     }
-    this.statsNode.textContent = `${this.pointCount.toLocaleString()} pts · 2D ${projection.label} · ${drawn.toLocaleString()} drawn`;
+    this.statsNode.textContent = `${this.pointCount.toLocaleString()} pts · canvas 3D · ${drawn.toLocaleString()} drawn`;
+  }
+
+  fallbackViewport() {
+    return {
+      width: this.canvas.width,
+      height: this.canvas.height,
+      focal: Math.min(this.canvas.width, this.canvas.height) * 0.72,
+      cosYaw: Math.cos(this.yaw),
+      sinYaw: Math.sin(this.yaw),
+      cosPitch: Math.cos(this.pitch),
+      sinPitch: Math.sin(this.pitch),
+    };
+  }
+
+  projectFallbackPoint(point, viewport) {
+    const dx = point[0] - this.target[0];
+    const dy = point[1] - this.target[1];
+    const dz = point[2] - this.target[2];
+    const cameraX = viewport.cosYaw * dx - viewport.sinYaw * dy;
+    const forward = viewport.sinYaw * dx + viewport.cosYaw * dy;
+    const cameraY = viewport.cosPitch * forward + viewport.sinPitch * dz + this.distance;
+    const cameraZ = -viewport.sinPitch * forward + viewport.cosPitch * dz;
+    if (cameraY <= 0.05) return null;
+    const scale = viewport.focal / cameraY;
+    return {
+      x: viewport.width / 2 + cameraX * scale,
+      y: viewport.height / 2 - cameraZ * scale,
+    };
   }
 
   bestFallbackProjection() {
@@ -436,11 +472,16 @@ export class PointCloudViewer {
   }
 
   render = () => {
-    if (!this.gl) return;
-    this.resize();
+    if (!this.gl && !this.context2d) return;
+    if (this.gl) this.resize();
     this.updateKeyboard();
     if (this.autoOrbit && this.pointCount > 0 && this.keys.size === 0 && !this.drag) {
       this.yaw += 0.0035;
+    }
+    if (!this.gl) {
+      this.drawFallback();
+      this.animation = requestAnimationFrame(this.render);
+      return;
     }
     this.gl.clearColor(0, 0, 0, 0);
     this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);

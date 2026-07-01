@@ -55,8 +55,8 @@ def test_cached_mission_snapshot_reuses_recent_payload(monkeypatch, tmp_path):
     monkeypatch.setenv("DEEPSIGHT_CONFIG", str(config_path))
     calls = []
 
-    def fake_snapshot(config, mode, ros_payload=None):
-        calls.append((mode, ros_payload))
+    def fake_snapshot(config, mode, ros_payload=None, ros_activity=None):
+        calls.append((mode, ros_payload, ros_activity))
         return {"mode": mode, "ros": ros_payload, "count": len(calls)}
 
     monkeypatch.setattr(server, "_mission_snapshot", fake_snapshot)

@@ -13,6 +13,8 @@ const state = {
   costmapSocket: null,
   commandTarget: "all",
   visibleEntities: [],
+  networkHistory: [],
+  previousPlaybackRunning: false,
   topicDiscoveryIntervalMs: 30000,
   topicDiscoveryTimer: null,
 };
@@ -154,15 +156,66 @@ function renderRos(ros) {
   }
 }
 
-function graphRow(label, percent, value, bad = false) {
+function renderRosActivity(activity) {
+  const stateName = activity?.state ?? "idle";
+  const detail = activity?.detail ? ` · ${activity.detail}` : "";
+  text("#ros-activity", `${stateName}${detail}`);
+}
+
+function stateRow(label, value, ok = true) {
   const row = document.createElement("div");
-  row.className = "graph-row";
+  row.className = "state-row";
   row.innerHTML = `
+    <i class="${ok ? "ok" : "bad"}"></i>
     <span>${label}</span>
-    <div class="bar ${bad ? "bad" : ""}"><i style="--value: ${Math.max(0, Math.min(100, percent))}%"></i></div>
     <strong>${value}</strong>
   `;
   return row;
+}
+
+function parseBandwidth(sample) {
+  const match = String(sample ?? "").match(/([0-9.]+)\s*(KB|MB|B)\/s/i);
+  if (!match) return 0;
+  let value = Number.parseFloat(match[1]);
+  if (match[2].toUpperCase() === "MB") value *= 1024;
+  if (match[2].toUpperCase() === "B") value /= 1024;
+  return value;
+}
+
+function drawNetworkGraph(totalBandwidthKb) {
+  const canvas = $("#network-graph");
+  if (!canvas) return;
+  const context = canvas.getContext("2d");
+  const width = Math.max(1, canvas.clientWidth);
+  const height = Math.max(1, canvas.clientHeight);
+  const scale = window.devicePixelRatio || 1;
+  canvas.width = Math.floor(width * scale);
+  canvas.height = Math.floor(height * scale);
+  context.setTransform(scale, 0, 0, scale, 0, 0);
+  context.fillStyle = "#050607";
+  context.fillRect(0, 0, width, height);
+  context.strokeStyle = "rgba(255,255,255,.10)";
+  context.lineWidth = 1;
+  for (let index = 1; index < 4; index += 1) {
+    const y = (height / 4) * index;
+    context.beginPath();
+    context.moveTo(0, y);
+    context.lineTo(width, y);
+    context.stroke();
+  }
+  state.networkHistory.push(totalBandwidthKb);
+  state.networkHistory = state.networkHistory.slice(-60);
+  const maxValue = Math.max(1, ...state.networkHistory);
+  context.strokeStyle = "rgba(217,220,219,.9)";
+  context.lineWidth = 2;
+  context.beginPath();
+  state.networkHistory.forEach((value, index) => {
+    const x = state.networkHistory.length === 1 ? width : (index / (state.networkHistory.length - 1)) * width;
+    const y = height - (value / maxValue) * (height - 10) - 5;
+    if (index === 0) context.moveTo(x, y);
+    else context.lineTo(x, y);
+  });
+  context.stroke();
 }
 
 function renderNetwork(payload) {
@@ -179,29 +232,26 @@ function renderNetwork(payload) {
   text("#network-loss", visibleEntities.length ? "0%" : robots.length ? `${Math.round(((robots.length - online) / robots.length) * 100)}%` : "n/a");
 
   for (const entity of visibleEntities) {
-    connectivity.append(graphRow(entity, 100, "ROS graph", false));
+    connectivity.append(stateRow(entity, "ROS graph", true));
   }
   if (!visibleEntities.length) {
     for (const robot of robots) {
       const latency = typeof robot.latency_ms === "number" ? robot.latency_ms : null;
-      const score = robot.online ? Math.max(8, 100 - Math.min(100, latency ?? 50)) : 0;
-      connectivity.append(graphRow(robot.label, score, robot.online ? `${latency?.toFixed(0) ?? "?"} ms` : "down", !robot.online));
+      connectivity.append(stateRow(robot.label, robot.online ? `${latency?.toFixed(0) ?? "?"} ms` : "down", robot.online));
     }
   }
 
+  let totalBandwidthKb = 0;
   for (const sample of payload.ros?.bandwidth ?? []) {
-    const match = String(sample.sample ?? "").match(/([0-9.]+)\s*(KB|MB|B)\/s/i);
-    let value = match ? Number.parseFloat(match[1]) : 0;
-    if (match?.[2]?.toUpperCase() === "MB") {
-      value *= 1024;
-    }
-    const percent = Math.min(100, value / 20);
-    bandwidth.append(graphRow(sample.topic, percent, sample.sample || "no sample", !sample.ok));
+    const value = parseBandwidth(sample.sample);
+    totalBandwidthKb += value;
+    bandwidth.append(stateRow(sample.topic, sample.sample || sample.error || "no sample", sample.ok));
   }
 
   if (!bandwidth.children.length) {
-    bandwidth.append(graphRow("ros2 topic bw", 0, "no samples", true));
+    bandwidth.append(stateRow("ros2 topic bw", "no samples", false));
   }
+  drawNetworkGraph(totalBandwidthKb);
 }
 
 function renderTools(groups) {
@@ -424,6 +474,7 @@ function render(payload) {
   renderBatteries(state.visibleEntities, payload.ros?.topics ?? []);
   renderCommandTargets(payload);
   renderRos(payload.ros);
+  renderRosActivity(payload.ros_activity);
   renderNetwork(payload);
   renderTools(payload.tools);
 }
@@ -495,8 +546,10 @@ async function refreshVisualTopics() {
 }
 
 async function refreshVisualTopicsNow() {
+  renderRosActivity({ state: "updating", detail: "manual topic refresh" });
   const response = await fetch("/api/visual/topics?refresh=true");
   renderVisualTopics(await response.json());
+  await refresh();
 }
 
 function scheduleTopicDiscovery(intervalSec) {
@@ -514,6 +567,8 @@ function scheduleTopicDiscovery(intervalSec) {
 async function refreshPostProcessingStatus() {
   const response = await fetch("/api/post-processing/status");
   const status = await response.json();
+  const wasRunning = state.previousPlaybackRunning;
+  state.previousPlaybackRunning = Boolean(status.running);
   const progress = Math.max(0, Math.min(100, status.progress_percent ?? 0));
   $("#post-progress-fill").style.width = `${progress}%`;
   $("#post-progress-label").textContent = `${progress.toFixed(0)}%`;
@@ -530,6 +585,9 @@ async function refreshPostProcessingStatus() {
     status.returncode != null ? `returncode: ${status.returncode}` : "",
     status.log_tail ? `\nlog:\n${status.log_tail}` : "",
   ].filter(Boolean).join("\n");
+  if (wasRunning && !status.running) {
+    await refreshVisualTopicsNow();
+  }
 }
 
 async function loadPointCloudSample(button) {
@@ -558,8 +616,9 @@ async function loadPointCloudSample(button) {
       cloudViewer.clear(payload.error || "could not load PointCloud2 sample");
       return;
     }
-    cloudViewer.loadPoints(payload.points ?? []);
-    $("#cloud-status").textContent = `${payload.topic} · ${payload.point_count} pts`;
+    const points = Array.isArray(payload.points) ? payload.points : [];
+    cloudViewer.loadPoints(points);
+    $("#cloud-status").textContent = `${payload.topic} · ${points.length}/${payload.point_count} pts`;
     $("#selected-cloud-topic").textContent = payload.topic;
   } catch (error) {
     cloudViewer.clear(`point cloud load failed: ${error.message}`);
@@ -669,8 +728,9 @@ function startPointCloudStream(button) {
       cloudViewer.clear(payload.error || "point cloud stream failed");
       return;
     }
-    cloudViewer.loadPoints(payload.points ?? [], "live cloud frame");
-    $("#cloud-status").textContent = `${payload.topic} · ${payload.point_count} live pts`;
+    const points = Array.isArray(payload.points) ? payload.points : [];
+    cloudViewer.loadPoints(points, "live cloud frame");
+    $("#cloud-status").textContent = `${payload.topic} · ${points.length}/${payload.point_count} live pts`;
     $("#selected-cloud-topic").textContent = payload.topic;
   });
   socket.addEventListener("close", () => {
@@ -751,6 +811,7 @@ async function playPostProcessingBag() {
   const payload = await response.json();
   $("#post-status").textContent = payload.ok ? "playback started" : payload.error;
   await refreshPostProcessingStatus();
+  await refreshVisualTopicsNow();
 }
 
 async function stopPostProcessingBag() {
@@ -758,6 +819,7 @@ async function stopPostProcessingBag() {
   const payload = await response.json();
   $("#post-status").textContent = payload.ok ? "playback stopped" : payload.error;
   await refreshPostProcessingStatus();
+  await refreshVisualTopicsNow();
 }
 
 async function setMode(mode) {
@@ -848,6 +910,7 @@ on("#refresh", "click", () => {
   refresh();
   refreshVisualTopicsNow();
 });
+on("#topics-refresh", "click", refreshVisualTopicsNow);
 on("#mode-dds", "click", () => setMode("dds"));
 on("#mode-zenoh", "click", () => setMode("zenoh"));
 on("#ros-domain-id", "change", setRosDomain);

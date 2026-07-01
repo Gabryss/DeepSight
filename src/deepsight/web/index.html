@@ -26,7 +26,7 @@
         </section>
 
         <section class="rail-block code-card">
-          <span>IDXC 01</span>
+          <span>TF</span>
           <pre id="tf-tree" class="mini-pre">awaiting tf tree</pre>
         </section>
       </aside>
@@ -164,11 +164,15 @@
           <div id="feed-network" class="tab-panel network-panel">
             <div class="network-card">
               <h2>Connectivity</h2>
-              <div id="network-connectivity" class="graph-stack"></div>
+              <div id="network-connectivity" class="state-list"></div>
             </div>
             <div class="network-card">
               <h2>Bandwidth</h2>
-              <div id="network-bandwidth" class="graph-stack"></div>
+              <div id="network-bandwidth" class="state-list"></div>
+            </div>
+            <div class="network-card network-graph-card">
+              <h2>Graph</h2>
+              <canvas id="network-graph" aria-label="Network trend graph"></canvas>
             </div>
             <div class="network-card">
               <h2>Link State</h2>
@@ -225,6 +229,8 @@
           <div>
             <span>ROS:</span>
             <strong id="ros-state">Unknown</strong>
+            <span>state:</span>
+            <strong id="ros-activity">idle</strong>
             <span>topics:</span>
             <strong id="topic-count">0</strong>
           </div>
@@ -262,7 +268,10 @@
         </section>
 
         <section id="inspect-topics" class="rail-block inspector-panel">
-          <h2>ROS Topics</h2>
+          <div class="inspector-head">
+            <h2>ROS Topics</h2>
+            <button id="topics-refresh" class="mini-button" type="button">Refresh</button>
+          </div>
           <div id="topics" class="chips"></div>
         </section>
 

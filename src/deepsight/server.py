@@ -104,7 +104,20 @@ def _tool_status(config: AppConfig) -> list[dict[str, object]]:
     return status
 
 
-def _mission_snapshot(config: AppConfig, middleware_mode: str, ros_payload: dict[str, object] | None = None) -> dict[str, object]:
+def _ros_activity_payload(app: FastAPI) -> dict[str, object]:
+    return dict(getattr(app.state, "ros_activity", {"state": "idle", "detail": "ready", "updated_at": time.time()}))
+
+
+def _set_ros_activity(app: FastAPI, state: str, detail: str) -> None:
+    app.state.ros_activity = {"state": state, "detail": detail, "updated_at": time.time()}
+
+
+def _mission_snapshot(
+    config: AppConfig,
+    middleware_mode: str,
+    ros_payload: dict[str, object] | None = None,
+    ros_activity: dict[str, object] | None = None,
+) -> dict[str, object]:
     ros_data = ros_payload if ros_payload is not None else ros_snapshot(config)
     visible_entities = visible_entities_from_topics(ros_data.get("topics", []))
     return {
@@ -115,6 +128,7 @@ def _mission_snapshot(config: AppConfig, middleware_mode: str, ros_payload: dict
         "visible_entities": visible_entities,
         "batteries": robot_batteries(config),
         "ros": ros_data,
+        "ros_activity": ros_activity or {"state": "idle", "detail": "ready", "updated_at": time.time()},
         "commands": [command.model_dump(exclude={"command"}) for command in config.commands],
     }
 
@@ -130,9 +144,11 @@ def _cached_ros_snapshot(app: FastAPI, config: AppConfig, force: bool = False) -
     if not force and cached_payload is not None and now - cached_at < _topic_discovery_ttl(config):
         return cached_payload
 
+    _set_ros_activity(app, "updating", "refreshing ROS graph")
     payload = ros_snapshot(config)
     app.state.ros_cache = payload
     app.state.ros_cached_at = now
+    _set_ros_activity(app, "idle" if payload.get("available") else "missing", "ROS graph refreshed" if payload.get("available") else str(payload.get("error") or "ros unavailable"))
     return payload
 
 
@@ -143,10 +159,12 @@ def _cached_visual_topics(app: FastAPI, config: AppConfig, force: bool = False) 
     if not force and cached_payload is not None and now - cached_at < _topic_discovery_ttl(config):
         return cached_payload
 
+    _set_ros_activity(app, "updating", "refreshing visual topics")
     payload = visual_topics(config)
     payload["next_refresh_sec"] = _topic_discovery_ttl(config)
     app.state.visual_topics_cache = payload
     app.state.visual_topics_cached_at = now
+    _set_ros_activity(app, "idle", "visual topics refreshed")
     return payload
 
 
@@ -159,7 +177,7 @@ def _cached_mission_snapshot(app: FastAPI, config: AppConfig) -> dict[str, objec
         return cached_payload
 
     ros_payload = _cached_ros_snapshot(app, config)
-    payload = _mission_snapshot(config, app.state.middleware_mode, ros_payload)
+    payload = _mission_snapshot(config, app.state.middleware_mode, ros_payload, _ros_activity_payload(app))
     app.state.snapshot_cache = payload
     app.state.snapshot_cached_at = now
     return payload
@@ -183,15 +201,20 @@ async def _restart_ros_runtime(app: FastAPI, config: AppConfig) -> dict[str, obj
     loop = bool(playback_status.get("loop"))
 
     if restart_playback:
+        _set_ros_activity(app, "stopping", "stopping bag playback for ROS_DOMAIN_ID change")
         await asyncio.to_thread(stop_bag_playback, app.state.bag_playback)
 
+    _set_ros_activity(app, "daemon_stopped", "stopping ROS daemon")
     stop_result = await run_shell_command_async("ros2 daemon stop", 8, config)
+    _set_ros_activity(app, "starting", "starting ROS daemon")
     start_result = await run_shell_command_async("ros2 daemon start", 8, config)
     _invalidate_snapshot_cache(app)
 
     replay_result: dict[str, object] | None = None
     if restart_playback:
+        _set_ros_activity(app, "starting", "restarting bag playback")
         replay_result = await asyncio.to_thread(start_bag_playback, app.state.bag_playback, config, bag_path, topics, rate, loop)
+    _set_ros_activity(app, "idle", "ROS daemon restarted")
 
     return {
         "daemon_stop": stop_result.ok,
@@ -216,6 +239,8 @@ def create_app() -> FastAPI:
     app.state.visual_topics_cache = None
     app.state.visual_topics_cached_at = 0.0
     app.state.bag_playback = BagPlayback()
+    app.state.last_playback_running = False
+    app.state.ros_activity = {"state": "idle", "detail": "ready", "updated_at": time.time()}
 
     @app.get("/api/health")
     async def health() -> dict[str, object]:
@@ -304,11 +329,18 @@ def create_app() -> FastAPI:
 
     @app.get("/api/post-processing/status")
     async def post_processing_status() -> dict[str, object]:
-        return app.state.bag_playback.status()
+        status = app.state.bag_playback.status()
+        running = bool(status.get("running"))
+        if bool(getattr(app.state, "last_playback_running", False)) and not running:
+            _set_ros_activity(app, "updating", "bag playback finished; refreshing ROS graph")
+            _invalidate_snapshot_cache(app)
+        app.state.last_playback_running = running
+        return status
 
     @app.post("/api/post-processing/play")
     async def post_processing_play(request: BagPlaybackRequest) -> dict[str, object]:
-        return await asyncio.to_thread(
+        _set_ros_activity(app, "starting", "starting bag playback")
+        result = await asyncio.to_thread(
             start_bag_playback,
             app.state.bag_playback,
             config,
@@ -317,10 +349,22 @@ def create_app() -> FastAPI:
             request.rate,
             request.loop,
         )
+        if result.get("ok"):
+            app.state.last_playback_running = True
+            _invalidate_snapshot_cache(app)
+            _set_ros_activity(app, "updating", "bag playback started; refreshing ROS graph")
+        else:
+            _set_ros_activity(app, "idle", str(result.get("error") or "bag playback did not start"))
+        return result
 
     @app.post("/api/post-processing/stop")
     async def post_processing_stop() -> dict[str, object]:
-        return await asyncio.to_thread(stop_bag_playback, app.state.bag_playback)
+        _set_ros_activity(app, "stopping", "stopping bag playback")
+        result = await asyncio.to_thread(stop_bag_playback, app.state.bag_playback)
+        app.state.last_playback_running = False
+        _invalidate_snapshot_cache(app)
+        _set_ros_activity(app, "updating", "bag playback stopped; refreshing ROS graph")
+        return result
 
     @app.get("/api/status")
     async def status() -> dict[str, object]:
@@ -336,6 +380,7 @@ def create_app() -> FastAPI:
 
     @app.post("/api/ros-domain")
     async def ros_domain(request: RosDomainRequest) -> dict[str, object]:
+        _set_ros_activity(app, "starting", "changing ROS_DOMAIN_ID")
         config.mission.ros_domain_id = request.domain_id
         restart = await _restart_ros_runtime(app, config)
         return {

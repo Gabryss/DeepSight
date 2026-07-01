@@ -22,7 +22,10 @@ def test_dashboard_contains_primary_feature_surfaces():
         "cloud-load",
         "cloud-canvas",
         "cloud-stats",
+        "network-graph",
+        "ros-activity",
         "ros-domain-id",
+        "topics-refresh",
         "map-entity-select",
         "map-topic-select",
         "map-canvas",
@@ -85,6 +88,8 @@ def test_dashboard_loads_visual_renderers():
     assert "restartVisualStreams" in app_js
     assert "scheduleTopicDiscovery" in app_js
     assert "/api/visual/topics?refresh=true" in app_js
+    assert "renderRosActivity" in app_js
+    assert "drawNetworkGraph" in app_js
     assert "Loading bags..." in app_js
     assert "No bags found" in app_js
     assert "Could not load bag inventory" in app_js
@@ -103,5 +108,6 @@ def test_dashboard_loads_visual_renderers():
     assert "pointSize" in pointcloud_js
     assert "autoOrbit" in pointcloud_js
     assert "stopAutoOrbit" in pointcloud_js
+    assert "projectFallbackPoint" in pointcloud_js
     assert "drawn" in pointcloud_js
     assert "none projected into view" in pointcloud_js

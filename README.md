@@ -77,16 +77,18 @@ pytest
 
 The backend uses ROS 2 CLI commands rather than ROS Python bindings, so tests and the local UI can run on machines without a sourced ROS environment. ROS-specific panels show missing status until `ros2` and the configured setup file are available.
 
-Tests include service-level end-to-end coverage for bag inventory and post-processing playback, plus static guards for the primary dashboard feature surfaces.
+Tests include service-level end-to-end coverage for bag inventory and post-processing playback, static guards for the primary dashboard feature surfaces, and a headless-browser cloud render check when Chrome is available.
 
 ## Visualization Notes
 
-The Cloud tab uses a native WebGL renderer with a configurable max-points cap. Use Stream to subscribe to a live PointCloud2 topic and update the 3D panel as frames arrive. Mouse controls orbit, pan, and zoom the scene; WASD/arrow keys move through the cloud when the canvas is focused. Color modes support distance, height, and intensity. The max-points cap remains as a field safety control for browser/GPU load, and defaults to 200k to avoid dropping too much data.
+The Cloud tab uses a canvas 3D renderer with a configurable max-points cap and point size. Use Stream to subscribe to a live PointCloud2 topic and update the 3D panel as frames arrive. The panel auto-orbits until the operator clicks, scrolls, or uses keyboard controls. Mouse controls orbit, pan, and zoom the scene; WASD/arrow keys move through the cloud when the canvas is focused. Color modes support distance, height, and intensity. The max-points cap remains as a field safety control for browser load, and defaults to 200k to avoid dropping too much data.
 
 Select a configured bag in Post Processing, choose a PointCloud2 topic in the Cloud tab, then use Load to render an actual sample from the bag. The Camera tab streams selected `sensor_msgs/msg/Image` or `sensor_msgs/msg/CompressedImage` topics and includes a camera metadata topic selector. The Map and Costmap tabs stream selected `nav_msgs/msg/OccupancyGrid` topics into top-down canvas views. Topic selectors are populated from live ROS topic types when `ros2 topic list -t` is available and from configured bag metadata otherwise.
 
-ROS topic discovery is cached separately from the main dashboard poll. Robot ping and battery state can update every few seconds, while topic selectors and ROS graph counts refresh on `[mission].topic_discovery_interval_sec` to avoid putting unnecessary DDS discovery traffic on an underground field network. The dashboard refresh button forces one immediate topic discovery pass.
+ROS topic discovery is cached separately from the main dashboard poll. Robot ping and battery state can update every few seconds, while topic selectors and ROS graph counts refresh on `[mission].topic_discovery_interval_sec` to avoid putting unnecessary DDS discovery traffic on an underground field network. The dashboard refresh button and the Topics inspector refresh button force one immediate topic discovery pass. Starting, stopping, finishing, or restarting bag playback invalidates the ROS graph cache so newly published topics appear promptly.
 
 Changing the ROS domain from the dashboard updates the runtime `ROS_DOMAIN_ID`, restarts the ROS daemon, clears cached ROS/topic state, and reconnects active visual streams. If post-processing bag playback is active, DeepSight stops and restarts that playback with the same bag, topics, rate, and loop settings.
+
+The left TF panel replaces the old decorative `IDXC 01` label. It shows whether `/tf` and `/tf_static` are active; the footer ROS state shows when DeepSight is refreshing topics, starting playback, stopping playback, or restarting the ROS daemon. The Network tab uses compact state rows and a separate bandwidth trend graph so text remains readable in the field UI.
 
 The next integration step is to move high-rate visual streams from JSON payloads to binary WebSocket packets for lower CPU overhead during long missions.
