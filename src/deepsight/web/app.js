@@ -204,6 +204,9 @@ function renderPostProcessingControls() {
   const select = $("#post-bag-select");
   const summary = $("#post-bag-summary");
   const topicsRoot = $("#post-topic-list");
+  if (!select || !summary || !topicsRoot) {
+    return;
+  }
   const current = selectedBag();
   select.replaceChildren();
   summary.replaceChildren();
@@ -218,10 +221,13 @@ function renderPostProcessingControls() {
   }
 
   if (!current) {
+    select.append(new Option("No bags found", ""));
+    select.disabled = true;
     summary.textContent = "No bags available under bag_root.";
     return;
   }
 
+  select.disabled = false;
   state.selectedBagPath = current.path;
   summary.innerHTML = `
     <span>${current.path}</span>
@@ -243,12 +249,22 @@ function renderPostProcessingControls() {
 
 function renderBags(payload) {
   const root = $("#bags");
+  const select = $("#post-bag-select");
+  const summary = $("#post-bag-summary");
+  const topicsRoot = $("#post-topic-list");
   root.replaceChildren();
   if (!payload.available) {
     const row = document.createElement("div");
     row.className = "row";
     row.innerHTML = `<strong>Unavailable</strong><span class="muted">${payload.error}</span>`;
     root.append(row);
+    state.bags = [];
+    if (select && summary && topicsRoot) {
+      select.replaceChildren(new Option(`Unavailable: ${payload.error || "bag inventory failed"}`, ""));
+      select.disabled = true;
+      summary.textContent = `Bag root ${payload.root || "not configured"}: ${payload.error || "unavailable"}`;
+      topicsRoot.replaceChildren();
+    }
     return;
   }
 
@@ -271,6 +287,12 @@ function renderBags(payload) {
   }
 
   state.bags = payload.bags ?? [];
+  if (!state.bags.length) {
+    const row = document.createElement("div");
+    row.className = "row";
+    row.innerHTML = `<strong>No bags found</strong><span class="muted">${payload.root || "bag_root"}</span>`;
+    root.append(row);
+  }
   if (!state.selectedBagPath && state.bags.length) {
     state.selectedBagPath = state.bags[0].path;
   }
@@ -402,8 +424,24 @@ async function refresh() {
 }
 
 async function refreshBags() {
-  const response = await fetch("/api/bags");
-  renderBags(await response.json());
+  const select = $("#post-bag-select");
+  const summary = $("#post-bag-summary");
+  if (select && !select.children.length) {
+    select.replaceChildren(new Option("Loading bags...", ""));
+    select.disabled = true;
+  }
+  try {
+    const response = await fetch("/api/bags");
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    renderBags(await response.json());
+  } catch (error) {
+    renderBags({ available: false, root: null, bags: [], error: error.message });
+    if (summary) {
+      summary.textContent = `Could not load bag inventory: ${error.message}`;
+    }
+  }
 }
 
 async function refreshVisualTopics() {
