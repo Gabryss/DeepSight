@@ -59,11 +59,12 @@ def test_pointcloud2_to_points_rejects_missing_xyz():
 
 
 def test_ros_python_module_command_sources_ros_and_preserves_pythonpath():
-    config = AppConfig(mission=Mission(ros_setup="/opt/ros/jazzy/setup.bash"))
+    config = AppConfig(mission=Mission(ros_setup="/opt/ros/jazzy/setup.bash", ros_domain_id=9))
 
     command = ros_python_module_command(config, "deepsight.pointcloud_live_cli", ["/cloud", "1000", "5"])
 
     assert command.startswith("source /opt/ros/jazzy/setup.bash && ")
+    assert "export ROS_DOMAIN_ID=9" in command
     assert "PYTHONPATH=" in command
     assert ":$PYTHONPATH" in command
     assert "deepsight.pointcloud_live_cli /cloud 1000 5" in command

@@ -10,7 +10,7 @@ from pathlib import Path
 
 from deepsight.bags import bag_inventory
 from deepsight.config import AppConfig
-from deepsight.runner import prepare_command
+from deepsight.runner import command_environment, prepare_command
 
 
 @dataclass
@@ -125,7 +125,7 @@ def start_bag_playback(playback: BagPlayback, config: AppConfig, bag_path: str, 
             ["bash", "-lc", command],
             stdout=log_file,
             stderr=subprocess.STDOUT,
-            env={**os.environ, "PYTHONUNBUFFERED": "1"},
+            env=command_environment(config),
             start_new_session=True,
         )
     except OSError as exc:

@@ -34,6 +34,7 @@ Copy `configs/mission.example.toml` for each field test and edit:
 - `background = true`: use this for long-running launch or bag commands.
 - `[server].host` and `[server].port`: local web server bind address.
 - `[mission].ros_setup`: ROS 2 setup script to source before ROS CLI probes.
+- `[mission].ros_domain_id`: default `ROS_DOMAIN_ID` for all ROS CLI probes, bag playback, and visual streams.
 - `[mission].poll_interval_sec`: lightweight dashboard refresh rate for robot state and cached status.
 - `[mission].topic_discovery_interval_sec`: slower ROS topic discovery cadence for `ros2 topic list` and `ros2 topic list -t`.
 - `[mission].bag_root`: local ROS bag root for the dashboard bag inventory.
@@ -85,5 +86,7 @@ The Cloud tab uses a native WebGL renderer with a configurable max-points cap. U
 Select a configured bag in Post Processing, choose a PointCloud2 topic in the Cloud tab, then use Load to render an actual sample from the bag. The Camera tab streams selected `sensor_msgs/msg/Image` or `sensor_msgs/msg/CompressedImage` topics and includes a camera metadata topic selector. The Map and Costmap tabs stream selected `nav_msgs/msg/OccupancyGrid` topics into top-down canvas views. Topic selectors are populated from live ROS topic types when `ros2 topic list -t` is available and from configured bag metadata otherwise.
 
 ROS topic discovery is cached separately from the main dashboard poll. Robot ping and battery state can update every few seconds, while topic selectors and ROS graph counts refresh on `[mission].topic_discovery_interval_sec` to avoid putting unnecessary DDS discovery traffic on an underground field network. The dashboard refresh button forces one immediate topic discovery pass.
+
+Changing the ROS domain from the dashboard updates the runtime `ROS_DOMAIN_ID`, restarts the ROS daemon, clears cached ROS/topic state, and reconnects active visual streams. If post-processing bag playback is active, DeepSight stops and restarts that playback with the same bag, topics, rate, and loop settings.
 
 The next integration step is to move high-rate visual streams from JSON payloads to binary WebSocket packets for lower CPU overhead during long missions.

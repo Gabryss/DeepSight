@@ -21,6 +21,7 @@ def test_dashboard_contains_primary_feature_surfaces():
         "cloud-load",
         "cloud-canvas",
         "cloud-stats",
+        "ros-domain-id",
         "map-entity-select",
         "map-topic-select",
         "map-canvas",
@@ -62,6 +63,7 @@ def test_server_exposes_core_api_routes():
         "/api/post-processing/play",
         "/api/post-processing/stop",
         "/api/commands/run",
+        "/api/ros-domain",
     ):
         assert path in paths
 
@@ -77,6 +79,9 @@ def test_dashboard_loads_visual_renderers():
     assert "/api/visual/pointcloud-live" in app_js
     assert "/api/visual/camera-live" in app_js
     assert "/api/visual/costmap-live" in app_js
+    assert "/api/ros-domain" in app_js
+    assert "setRosDomain" in app_js
+    assert "restartVisualStreams" in app_js
     assert "scheduleTopicDiscovery" in app_js
     assert "/api/visual/topics?refresh=true" in app_js
     assert "Loading bags..." in app_js

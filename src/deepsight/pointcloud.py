@@ -137,6 +137,8 @@ def ros_python_module_command(config: AppConfig, module: str, args: list[str]) -
     module_root = str(Path(__file__).resolve().parents[1])
     env_prefix = f"PYTHONPATH={shlex_join([module_root])}:$PYTHONPATH"
     command = f"{env_prefix} {shlex_join([sys.executable, '-m', module, *args])}"
+    if config.mission.ros_domain_id is not None:
+        command = f"export ROS_DOMAIN_ID={shlex_join([str(config.mission.ros_domain_id)])} && {command}"
     if config.mission.ros_setup:
         return f"source {shlex_join([config.mission.ros_setup])} && {command}"
     return command

@@ -46,6 +46,10 @@
             <button class="tab-button" data-tab-target="feed-post-processing" type="button">Post Processing</button>
           </nav>
           <div class="stage-actions">
+            <label class="domain-control" title="ROS_DOMAIN_ID">
+              <span>Domain</span>
+              <input id="ros-domain-id" type="number" min="0" max="232" step="1" />
+            </label>
             <div class="segmented" aria-label="Middleware mode">
               <button id="mode-dds" class="active" type="button">DDS</button>
               <button id="mode-zenoh" type="button">ZENOH</button>

@@ -29,6 +29,10 @@ class MiddlewareRequest(BaseModel):
     mode: str
 
 
+class RosDomainRequest(BaseModel):
+    domain_id: int | None = Field(default=None, ge=0, le=232)
+
+
 class BagPlaybackRequest(BaseModel):
     bag_path: str
     topics: list[str] = Field(default_factory=list)
@@ -161,6 +165,39 @@ def _cached_mission_snapshot(app: FastAPI, config: AppConfig) -> dict[str, objec
 def _invalidate_snapshot_cache(app: FastAPI) -> None:
     app.state.snapshot_cache = None
     app.state.snapshot_cached_at = 0.0
+    app.state.ros_cache = None
+    app.state.ros_cached_at = 0.0
+    app.state.visual_topics_cache = None
+    app.state.visual_topics_cached_at = 0.0
+
+
+async def _restart_ros_runtime(app: FastAPI, config: AppConfig) -> dict[str, object]:
+    playback_status = app.state.bag_playback.status()
+    restart_playback = bool(playback_status.get("running") and playback_status.get("bag_path"))
+    bag_path = str(playback_status.get("bag_path") or "")
+    topics = list(playback_status.get("topics") or [])
+    rate = float(playback_status.get("rate") or 1.0)
+    loop = bool(playback_status.get("loop"))
+
+    if restart_playback:
+        await asyncio.to_thread(stop_bag_playback, app.state.bag_playback)
+
+    stop_result = await run_shell_command_async("ros2 daemon stop", 8, config)
+    start_result = await run_shell_command_async("ros2 daemon start", 8, config)
+    _invalidate_snapshot_cache(app)
+
+    replay_result: dict[str, object] | None = None
+    if restart_playback:
+        replay_result = await asyncio.to_thread(start_bag_playback, app.state.bag_playback, config, bag_path, topics, rate, loop)
+
+    return {
+        "daemon_stop": stop_result.ok,
+        "daemon_start": start_result.ok,
+        "daemon_stdout": "\n".join(part for part in (stop_result.stdout, start_result.stdout) if part),
+        "daemon_stderr": "\n".join(part for part in (stop_result.stderr, start_result.stderr) if part),
+        "playback_restarted": bool(replay_result and replay_result.get("ok")),
+        "playback_error": "" if not replay_result else str(replay_result.get("error") or ""),
+    }
 
 
 def create_app() -> FastAPI:
@@ -293,6 +330,16 @@ def create_app() -> FastAPI:
         app.state.middleware_mode = request.mode
         _invalidate_snapshot_cache(app)
         return {"mode": request.mode}
+
+    @app.post("/api/ros-domain")
+    async def ros_domain(request: RosDomainRequest) -> dict[str, object]:
+        config.mission.ros_domain_id = request.domain_id
+        restart = await _restart_ros_runtime(app, config)
+        return {
+            "ok": True,
+            "ros_domain_id": config.mission.ros_domain_id,
+            **restart,
+        }
 
     @app.post("/api/commands/run")
     async def run_command(request: CommandRequest) -> dict[str, object]:

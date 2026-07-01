@@ -367,6 +367,9 @@ function renderVisualTopics(payload) {
 function render(payload) {
   state.latest = payload;
   text("#mission-name", payload.mission.name);
+  if ($("#ros-domain-id") && document.activeElement !== $("#ros-domain-id")) {
+    $("#ros-domain-id").value = payload.mission.ros_domain_id ?? "";
+  }
   const online = payload.robots.filter((robot) => robot.online).length;
   text("#robot-count", `${online}/${payload.robots.length}`);
   text("#mode-state", payload.middleware_mode.toUpperCase());
@@ -545,6 +548,35 @@ function stopSocket(key, messageNode, message = "") {
   }
 }
 
+function stopVisualStreams() {
+  const wasStreaming = {
+    cloud: Boolean(state.cloudSocket),
+    camera: Boolean(state.cameraSocket),
+    map: Boolean(state.mapSocket),
+    costmap: Boolean(state.costmapSocket),
+  };
+  stopPointCloudStream("stream stopped for ROS_DOMAIN_ID update");
+  stopSocket("cameraSocket", $("#camera-status"), "stream stopped for ROS_DOMAIN_ID update");
+  stopSocket("mapSocket", $("#map-status"), "stream stopped for ROS_DOMAIN_ID update");
+  stopSocket("costmapSocket", $("#costmap-status"), "stream stopped for ROS_DOMAIN_ID update");
+  return wasStreaming;
+}
+
+function restartVisualStreams(wasStreaming) {
+  if (wasStreaming.cloud && $("#cloud-topic-select").value) {
+    startPointCloudStream($("#cloud-stream"));
+  }
+  if (wasStreaming.camera && $("#camera-topic-select").value) {
+    startCameraStream();
+  }
+  if (wasStreaming.map && $("#map-topic-select").value) {
+    startCostmapStream("#map-topic-select", "mapSocket", mapViewer, "#map-status");
+  }
+  if (wasStreaming.costmap && $("#costmap-topic-select").value) {
+    startCostmapStream("#costmap-topic-select", "costmapSocket", costmapViewer, "#costmap-status");
+  }
+}
+
 function openVisualSocket(path, params, key, onMessage, onClose) {
   stopSocket(key);
   const protocol = location.protocol === "https:" ? "wss" : "ws";
@@ -687,12 +719,55 @@ async function stopPostProcessingBag() {
 }
 
 async function setMode(mode) {
-  await fetch("/api/middleware", {
+  $("#mode-dds").classList.toggle("active", mode === "dds");
+  $("#mode-zenoh").classList.toggle("active", mode === "zenoh");
+  text("#mode-state", mode.toUpperCase());
+  text("#network-mode", mode.toUpperCase());
+  const response = await fetch("/api/middleware", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ mode }),
   });
+  const payload = await response.json();
+  $("#console-log").textContent = `middleware mode: ${payload.mode?.toUpperCase?.() ?? mode.toUpperCase()}`;
   await refresh();
+}
+
+async function setRosDomain() {
+  const input = $("#ros-domain-id");
+  const rawValue = input.value.trim();
+  const domainId = rawValue === "" ? null : Number.parseInt(rawValue, 10);
+  if (rawValue !== "" && (!Number.isInteger(domainId) || domainId < 0 || domainId > 232)) {
+    $("#console-log").textContent = "ROS_DOMAIN_ID must be empty or an integer from 0 to 232.";
+    return;
+  }
+  const wasStreaming = stopVisualStreams();
+  input.disabled = true;
+  $("#console-log").textContent = `setting ROS_DOMAIN_ID=${domainId ?? "unset"} and restarting ROS daemon...`;
+  try {
+    const response = await fetch("/api/ros-domain", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ domain_id: domainId }),
+    });
+    const payload = await response.json();
+    $("#console-log").textContent = [
+      `ROS_DOMAIN_ID=${payload.ros_domain_id ?? "unset"}`,
+      `daemon stop: ${payload.daemon_stop ? "ok" : "failed"}`,
+      `daemon start: ${payload.daemon_start ? "ok" : "failed"}`,
+      payload.playback_restarted ? "bag playback restarted" : "",
+      payload.playback_error ? `playback: ${payload.playback_error}` : "",
+      payload.daemon_stdout,
+      payload.daemon_stderr,
+    ].filter(Boolean).join("\n");
+    await refresh();
+    await refreshVisualTopicsNow();
+    restartVisualStreams(wasStreaming);
+  } catch (error) {
+    $("#console-log").textContent = `ROS_DOMAIN_ID update failed: ${error.message}`;
+  } finally {
+    input.disabled = false;
+  }
 }
 
 async function runCommand(commandId, button) {
@@ -733,6 +808,7 @@ on("#refresh", "click", () => {
 });
 on("#mode-dds", "click", () => setMode("dds"));
 on("#mode-zenoh", "click", () => setMode("zenoh"));
+on("#ros-domain-id", "change", setRosDomain);
 on("#post-bag-select", "change", (event) => {
   state.selectedBagPath = event.target.value;
   renderPostProcessingControls();

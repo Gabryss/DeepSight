@@ -35,9 +35,19 @@ def command_available(command: str | None, config: AppConfig | None = None) -> b
 
 
 def _ros_shell_prefix(config: AppConfig) -> str:
+    parts = []
     if config.mission.ros_setup:
-        return f"source {shlex.quote(config.mission.ros_setup)} && "
-    return ""
+        parts.append(f"source {shlex.quote(config.mission.ros_setup)}")
+    if config.mission.ros_domain_id is not None:
+        parts.append(f"export ROS_DOMAIN_ID={shlex.quote(str(config.mission.ros_domain_id))}")
+    return " && ".join(parts) + (" && " if parts else "")
+
+
+def command_environment(config: AppConfig | None = None) -> dict[str, str]:
+    env = {**os.environ, "PYTHONUNBUFFERED": "1"}
+    if config and config.mission.ros_domain_id is not None:
+        env["ROS_DOMAIN_ID"] = str(config.mission.ros_domain_id)
+    return env
 
 
 def run_shell_command(command: str, timeout_sec: float, config: AppConfig | None = None) -> CommandResult:
@@ -50,7 +60,7 @@ def run_shell_command(command: str, timeout_sec: float, config: AppConfig | None
             capture_output=True,
             text=True,
             timeout=timeout_sec,
-            env={**os.environ, "PYTHONUNBUFFERED": "1"},
+            env=command_environment(config),
         )
     except subprocess.TimeoutExpired as exc:
         return CommandResult(
@@ -85,7 +95,7 @@ def start_background_command(command: str, config: AppConfig | None = None) -> C
             ["bash", "-lc", effective_command],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            env={**os.environ, "PYTHONUNBUFFERED": "1"},
+            env=command_environment(config),
             start_new_session=True,
         )
     except OSError as exc:

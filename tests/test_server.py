@@ -4,6 +4,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from deepsight import server
+from deepsight.runner import CommandResult
 
 
 @pytest.fixture
@@ -169,3 +170,30 @@ async def test_command_endpoint_rejects_unknown_id(monkeypatch, tmp_path):
         response = await client.post("/api/commands/run", json={"command_id": "missing"})
 
     assert response.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_ros_domain_endpoint_updates_config_and_restarts_daemon(monkeypatch, tmp_path):
+    config_path = tmp_path / "mission.toml"
+    config_path.write_text("[mission]\nname = \"API Test\"\n", encoding="utf-8")
+    monkeypatch.setenv("DEEPSIGHT_CONFIG", str(config_path))
+    calls = []
+
+    async def fake_run_shell_command_async(command, timeout_sec, config):
+        calls.append((command, timeout_sec, config.mission.ros_domain_id))
+        return CommandResult(True, command, 0, "", "")
+
+    monkeypatch.setattr(server, "run_shell_command_async", fake_run_shell_command_async)
+
+    app = server.create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post("/api/ros-domain", json={"domain_id": 23})
+
+    assert response.status_code == 200
+    assert response.json()["ros_domain_id"] == 23
+    assert app.state.config.mission.ros_domain_id == 23
+    assert calls == [
+        ("ros2 daemon stop", 8, 23),
+        ("ros2 daemon start", 8, 23),
+    ]

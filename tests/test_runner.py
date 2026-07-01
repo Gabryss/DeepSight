@@ -13,6 +13,14 @@ def test_prepare_command_sources_ros_setup_for_ros_commands():
     assert command == "source /opt/ros/jazzy/setup.bash && ros2 topic list"
 
 
+def test_prepare_command_exports_ros_domain_for_ros_commands():
+    config = AppConfig(mission=Mission(ros_setup="/opt/ros/jazzy/setup.bash", ros_domain_id=7))
+
+    command = prepare_command("ros2 topic list", config)
+
+    assert command == "source /opt/ros/jazzy/setup.bash && export ROS_DOMAIN_ID=7 && ros2 topic list"
+
+
 def test_command_available_uses_configured_ros_environment(monkeypatch):
     config = AppConfig(mission=Mission(ros_setup="/opt/ros/jazzy/setup.bash"))
     calls = []
