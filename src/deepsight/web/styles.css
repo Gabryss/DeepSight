@@ -71,7 +71,7 @@ pre {
 .hud-shell {
   display: grid;
   grid-template-columns: 194px minmax(0, 1fr) 300px;
-  grid-template-rows: minmax(0, 1fr) 150px;
+  grid-template-rows: minmax(0, 1fr);
   gap: 0;
   width: 100%;
   height: 100vh;
@@ -86,7 +86,7 @@ pre {
 
 .left-rail {
   display: grid;
-  grid-template-rows: auto minmax(90px, 1fr) minmax(70px, .8fr) minmax(120px, 1fr);
+  grid-template-rows: auto minmax(82px, .7fr) minmax(70px, .6fr) minmax(150px, 1fr) minmax(120px, .9fr);
   gap: 13px;
   min-width: 0;
   padding: 21px 18px 14px;
@@ -398,7 +398,11 @@ pre {
 }
 
 .viewport:has(.visual-panel.active)::before,
-.viewport:has(.visual-panel.active)::after {
+.viewport:has(.visual-panel.active)::after,
+.viewport:has(.network-panel.active)::before,
+.viewport:has(.network-panel.active)::after,
+.viewport:has(.post-panel.active)::before,
+.viewport:has(.post-panel.active)::after {
   display: none;
 }
 
@@ -484,15 +488,24 @@ pre {
 }
 
 .network-panel {
-  grid-template-columns: minmax(190px, .7fr) minmax(260px, 1fr) minmax(260px, 1fr) minmax(190px, .7fr);
+  grid-template-columns: minmax(190px, .7fr) minmax(420px, 1.6fr) minmax(220px, .75fr);
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   gap: 14px;
   padding: 20px;
+  background:
+    linear-gradient(rgba(255, 255, 255, .05) 1px, transparent 1px) 0 0 / 100% 72px,
+    linear-gradient(90deg, rgba(255, 255, 255, .045) 1px, transparent 1px) 0 0 / 82px 100%,
+    #030405;
 }
 
 .post-panel {
-  grid-template-columns: minmax(240px, .8fr) minmax(280px, 1.2fr) minmax(220px, .7fr);
+  grid-template-columns: minmax(260px, .85fr) minmax(320px, 1.2fr) minmax(240px, .75fr);
   gap: 14px;
   padding: 20px;
+  background:
+    linear-gradient(rgba(255, 255, 255, .05) 1px, transparent 1px) 0 0 / 100% 72px,
+    linear-gradient(90deg, rgba(255, 255, 255, .045) 1px, transparent 1px) 0 0 / 82px 100%,
+    #030405;
 }
 
 .network-card,
@@ -501,8 +514,21 @@ pre {
   min-height: 0;
   padding: 12px;
   border: 1px solid rgba(255, 255, 255, .14);
-  background: rgba(0, 0, 0, .24);
+  background: rgba(0, 0, 0, .08);
   overflow: auto;
+}
+
+.network-card:first-child {
+  grid-row: 1 / 3;
+}
+
+.network-graph-card {
+  grid-column: 2;
+  grid-row: 1 / 3;
+}
+
+.network-summary-card {
+  grid-column: 3;
 }
 
 .network-card h2,
@@ -533,9 +559,34 @@ pre {
 }
 
 .post-summary,
-.topic-filter {
+.topic-filter,
+.bag-metrics,
+.topic-picker,
+.network-legend {
   display: grid;
   gap: 7px;
+}
+
+.bag-metrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
+.bag-metrics div {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  background: rgba(255, 255, 255, .03);
+}
+
+.bag-metrics span {
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.bag-metrics strong {
+  overflow-wrap: anywhere;
 }
 
 .topic-filter {
@@ -667,7 +718,57 @@ pre {
 
 .network-graph-card {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.network-graph-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.network-graph-head h2 {
+  margin-bottom: 0;
+}
+
+.network-graph-head label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.network-graph-head input {
+  width: 54px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  background: rgba(0, 0, 0, .38);
+  color: var(--ink);
+  font: inherit;
+  text-align: center;
+}
+
+.topic-picker {
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  max-height: 74px;
+  overflow: auto;
+}
+
+.topic-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: rgba(255, 255, 255, .68);
+}
+
+.topic-toggle span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #network-graph {
@@ -691,6 +792,30 @@ pre {
   color: rgba(255, 255, 255, .64);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.network-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  min-width: 0;
+}
+
+.network-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 170px;
+  color: rgba(255, 255, 255, .68);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.network-legend i {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
 }
 
 .bar {
@@ -858,26 +983,53 @@ pre {
 }
 
 .console-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  display: grid;
+  gap: 6px;
   margin-bottom: 7px;
 }
 
 .console-head label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  display: grid;
+  gap: 4px;
   color: rgba(255, 255, 255, .56);
   text-transform: uppercase;
 }
 
 .console-head select {
-  min-width: 160px;
+  min-width: 0;
+  width: 100%;
   border: 1px solid rgba(255, 255, 255, .18);
   background: rgba(0, 0, 0, .68);
   color: var(--ink);
   font: inherit;
+}
+
+.side-console,
+.side-output {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.side-console .command-list {
+  align-content: start;
+}
+
+.side-console .command {
+  grid-template-columns: minmax(0, 1fr) 28px;
+  gap: 5px;
+}
+
+.side-console .command span {
+  display: none;
+}
+
+.side-console .command button {
+  width: 28px;
+}
+
+.side-output .output {
+  min-height: 0;
+  font-size: 9px;
 }
 
 .bottom-tabs {

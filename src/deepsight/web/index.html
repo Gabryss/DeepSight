@@ -25,9 +25,20 @@
           <div id="batteries" class="micro-list"></div>
         </section>
 
-        <section class="rail-block code-card">
-          <span>TF</span>
-          <pre id="tf-tree" class="mini-pre">awaiting tf tree</pre>
+        <section class="rail-block side-console">
+          <div class="console-head">
+            <h2>Commands</h2>
+            <label>
+              <span>target</span>
+              <select id="command-target-select"></select>
+            </label>
+          </div>
+          <div id="commands" class="command-list"></div>
+        </section>
+
+        <section class="rail-block side-output">
+          <h2>Output</h2>
+          <pre id="console-log" class="output">\&gt;</pre>
         </section>
       </aside>
 
@@ -43,7 +54,7 @@
             <button class="tab-button" data-tab-target="feed-camera" type="button">Camera</button>
             <button class="tab-button" data-tab-target="feed-costmap" type="button">Costmap</button>
             <button class="tab-button" data-tab-target="feed-network" type="button">Network</button>
-            <button class="tab-button" data-tab-target="feed-post-processing" type="button">Post Processing</button>
+            <button class="tab-button" data-tab-target="feed-post-processing" type="button">Bags</button>
           </nav>
           <div class="stage-actions">
             <label class="domain-control" title="ROS_DOMAIN_ID">
@@ -163,19 +174,28 @@
           </div>
           <div id="feed-network" class="tab-panel network-panel">
             <div class="network-card">
-              <h2>Connectivity</h2>
+              <h2>Links</h2>
               <div id="network-connectivity" class="state-list"></div>
             </div>
+            <div class="network-card network-graph-card">
+              <div class="network-graph-head">
+                <h2>Bandwidth Graph</h2>
+                <label>
+                  <span>window</span>
+                  <input id="network-window-sec" type="number" min="2" max="120" step="1" value="10" />
+                  <span>s</span>
+                </label>
+              </div>
+              <div id="network-topic-picker" class="topic-picker"></div>
+              <canvas id="network-graph" aria-label="Network trend graph"></canvas>
+              <div id="network-legend" class="network-legend"></div>
+            </div>
             <div class="network-card">
-              <h2>Bandwidth</h2>
+              <h2>Bandwidth Samples</h2>
               <div id="network-bandwidth" class="state-list"></div>
             </div>
-            <div class="network-card network-graph-card">
-              <h2>Graph</h2>
-              <canvas id="network-graph" aria-label="Network trend graph"></canvas>
-            </div>
-            <div class="network-card">
-              <h2>Link State</h2>
+            <div class="network-card network-summary-card">
+              <h2>Summary</h2>
               <div class="spark-grid">
                 <div><span>packet loss</span><strong id="network-loss">n/a</strong></div>
                 <div><span>online robots</span><strong id="network-online">0/0</strong></div>
@@ -191,10 +211,12 @@
                 <select id="post-bag-select"></select>
               </label>
               <div id="post-bag-summary" class="post-summary"></div>
+              <div id="post-bag-metrics" class="bag-metrics"></div>
             </section>
 
             <section class="post-card">
               <h2>Topic Filter</h2>
+              <div id="post-topic-stats" class="post-summary"></div>
               <div id="post-topic-list" class="topic-filter"></div>
             </section>
 
@@ -286,23 +308,6 @@
         </section>
       </aside>
 
-      <section class="bottom-console" aria-label="Command console">
-        <div class="bottom-tabs">
-          <button class="tab-button active" data-tab-target="console-commands" type="button">Commands</button>
-          <button class="tab-button" data-tab-target="console-log" type="button">Output</button>
-        </div>
-        <div id="console-commands" class="console-panel active">
-          <div class="console-head">
-            <h2>Remote Commands</h2>
-            <label>
-              <span>target</span>
-              <select id="command-target-select"></select>
-            </label>
-          </div>
-          <div id="commands" class="command-list"></div>
-        </div>
-        <pre id="console-log" class="console-panel output">\&gt;</pre>
-      </section>
     </main>
 
     <script src="/app.js" type="module"></script>

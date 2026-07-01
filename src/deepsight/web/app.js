@@ -13,7 +13,8 @@ const state = {
   costmapSocket: null,
   commandTarget: "all",
   visibleEntities: [],
-  networkHistory: [],
+  networkHistory: new Map(),
+  selectedNetworkTopics: new Set(),
   previousPlaybackRunning: false,
   topicDiscoveryIntervalMs: 30000,
   topicDiscoveryTimer: null,
@@ -141,7 +142,6 @@ function renderRos(ros) {
   const topics = $("#topics");
   nodes.replaceChildren(...(ros.nodes ?? []).map(chip));
   topics.replaceChildren(...(ros.topics ?? []).map(chip));
-  text("#tf-tree", ros.tf_tree || ros.error || "No TF data");
 
   const bandwidth = $("#bandwidth");
   bandwidth.replaceChildren();
@@ -182,7 +182,33 @@ function parseBandwidth(sample) {
   return value;
 }
 
-function drawNetworkGraph(totalBandwidthKb) {
+const NETWORK_COLORS = ["#d9dcdb", "#ff5a4d", "#72d0ff", "#d4ba63", "#90d8a2", "#c89cff"];
+
+function renderNetworkTopicPicker(samples) {
+  const root = $("#network-topic-picker");
+  if (!root) return;
+  const topics = samples.map((sample) => sample.topic);
+  if (!state.selectedNetworkTopics.size && topics.length) {
+    topics.slice(0, 3).forEach((topic) => state.selectedNetworkTopics.add(topic));
+  }
+  for (const topic of [...state.selectedNetworkTopics]) {
+    if (!topics.includes(topic)) state.selectedNetworkTopics.delete(topic);
+  }
+  root.replaceChildren();
+  for (const topic of topics) {
+    const label = document.createElement("label");
+    label.className = "topic-toggle";
+    label.innerHTML = `<input type="checkbox" value="${topic}" ${state.selectedNetworkTopics.has(topic) ? "checked" : ""} /><span>${topic}</span>`;
+    label.querySelector("input").addEventListener("change", (event) => {
+      if (event.target.checked) state.selectedNetworkTopics.add(topic);
+      else state.selectedNetworkTopics.delete(topic);
+      drawNetworkGraph();
+    });
+    root.append(label);
+  }
+}
+
+function drawNetworkGraph() {
   const canvas = $("#network-graph");
   if (!canvas) return;
   const context = canvas.getContext("2d");
@@ -203,19 +229,35 @@ function drawNetworkGraph(totalBandwidthKb) {
     context.lineTo(width, y);
     context.stroke();
   }
-  state.networkHistory.push(totalBandwidthKb);
-  state.networkHistory = state.networkHistory.slice(-60);
-  const maxValue = Math.max(1, ...state.networkHistory);
-  context.strokeStyle = "rgba(217,220,219,.9)";
-  context.lineWidth = 2;
-  context.beginPath();
-  state.networkHistory.forEach((value, index) => {
-    const x = state.networkHistory.length === 1 ? width : (index / (state.networkHistory.length - 1)) * width;
-    const y = height - (value / maxValue) * (height - 10) - 5;
-    if (index === 0) context.moveTo(x, y);
-    else context.lineTo(x, y);
+  const selected = [...state.selectedNetworkTopics];
+  const histories = selected.map((topic) => state.networkHistory.get(topic) ?? []);
+  const maxValue = Math.max(1, ...histories.flat().map((sample) => sample.value));
+  const now = performance.now();
+  const windowSec = Math.max(2, Math.min(120, Number.parseFloat($("#network-window-sec")?.value || "10") || 10));
+  selected.forEach((topic, topicIndex) => {
+    const samples = (state.networkHistory.get(topic) ?? []).filter((sample) => now - sample.at <= windowSec * 1000);
+    context.strokeStyle = NETWORK_COLORS[topicIndex % NETWORK_COLORS.length];
+    context.lineWidth = 2;
+    context.beginPath();
+    samples.forEach((sample, index) => {
+      const age = Math.max(0, now - sample.at);
+      const x = width - (age / (windowSec * 1000)) * width;
+      const y = height - (sample.value / maxValue) * (height - 12) - 6;
+      if (index === 0) context.moveTo(x, y);
+      else context.lineTo(x, y);
+    });
+    context.stroke();
   });
-  context.stroke();
+
+  const legend = $("#network-legend");
+  if (legend) {
+    legend.replaceChildren();
+    selected.forEach((topic, index) => {
+      const item = document.createElement("span");
+      item.innerHTML = `<i style="background:${NETWORK_COLORS[index % NETWORK_COLORS.length]}"></i>${topic}`;
+      legend.append(item);
+    });
+  }
 }
 
 function renderNetwork(payload) {
@@ -232,7 +274,7 @@ function renderNetwork(payload) {
   text("#network-loss", visibleEntities.length ? "0%" : robots.length ? `${Math.round(((robots.length - online) / robots.length) * 100)}%` : "n/a");
 
   for (const entity of visibleEntities) {
-    connectivity.append(stateRow(entity, "ROS graph", true));
+    connectivity.append(stateRow(entity, `online · ${payload.middleware_mode.toUpperCase()}`, true));
   }
   if (!visibleEntities.length) {
     for (const robot of robots) {
@@ -245,12 +287,16 @@ function renderNetwork(payload) {
   for (const sample of payload.ros?.bandwidth ?? []) {
     const value = parseBandwidth(sample.sample);
     totalBandwidthKb += value;
+    const history = state.networkHistory.get(sample.topic) ?? [];
+    history.push({ at: performance.now(), value });
+    state.networkHistory.set(sample.topic, history.slice(-240));
     bandwidth.append(stateRow(sample.topic, sample.sample || sample.error || "no sample", sample.ok));
   }
 
   if (!bandwidth.children.length) {
     bandwidth.append(stateRow("ros2 topic bw", "no samples", false));
   }
+  renderNetworkTopicPicker(payload.ros?.bandwidth ?? []);
   drawNetworkGraph(totalBandwidthKb);
 }
 
@@ -295,6 +341,8 @@ function selectedBag() {
 function renderPostProcessingControls() {
   const select = $("#post-bag-select");
   const summary = $("#post-bag-summary");
+  const metrics = $("#post-bag-metrics");
+  const topicStats = $("#post-topic-stats");
   const topicsRoot = $("#post-topic-list");
   if (!select || !summary || !topicsRoot) {
     return;
@@ -302,6 +350,8 @@ function renderPostProcessingControls() {
   const current = selectedBag();
   select.replaceChildren();
   summary.replaceChildren();
+  metrics?.replaceChildren();
+  topicStats?.replaceChildren();
   topicsRoot.replaceChildren();
 
   for (const bag of state.bags) {
@@ -321,13 +371,36 @@ function renderPostProcessingControls() {
 
   select.disabled = false;
   state.selectedBagPath = current.path;
+  const capabilities = current.capabilities ?? {};
+  const available = Object.entries(capabilities.available ?? {}).filter(([, value]) => value).map(([name]) => name);
+  const missing = capabilities.missing_for_full_monitoring ?? [];
   summary.innerHTML = `
+    <strong>${current.name}</strong>
     <span>${current.path}</span>
-    <strong>${current.message_count} messages · ${current.topic_count} topics · ${current.duration_sec ?? "?"}s · ${formatBytes(current.size_bytes)}</strong>
-    <span>visual: ${(current.capabilities?.visualizable ?? []).join(", ") || "none"}</span>
+    <span>storage: ${current.storage || "unknown"} · ROS: ${current.ros_distro || "unknown"}</span>
   `;
+  if (metrics) {
+    const metricValues = [
+      ["duration", `${current.duration_sec ?? "?"}s`],
+      ["messages", current.message_count ?? 0],
+      ["topics", current.topic_count ?? 0],
+      ["size", formatBytes(current.size_bytes)],
+    ];
+    for (const [label, value] of metricValues) {
+      const card = document.createElement("div");
+      card.innerHTML = `<span>${label}</span><strong>${value}</strong>`;
+      metrics.append(card);
+    }
+  }
+  if (topicStats) {
+    topicStats.innerHTML = `
+      <span>available: ${available.join(", ") || "none"}</span>
+      <span>missing: ${missing.join(", ") || "none"}</span>
+      <span>selected topics play as a filtered rosbag; leave unchecked to play all topics.</span>
+    `;
+  }
 
-  for (const topic of current.topics ?? []) {
+  for (const topic of (current.topics ?? []).slice().sort((left, right) => right.messages - left.messages)) {
     const label = document.createElement("label");
     label.className = "topic-option";
     label.innerHTML = `
@@ -343,6 +416,8 @@ function renderBags(payload) {
   const root = $("#bags");
   const select = $("#post-bag-select");
   const summary = $("#post-bag-summary");
+  const metrics = $("#post-bag-metrics");
+  const topicStats = $("#post-topic-stats");
   const topicsRoot = $("#post-topic-list");
   root.replaceChildren();
   if (!payload.available) {
@@ -355,6 +430,8 @@ function renderBags(payload) {
       select.replaceChildren(new Option(`Unavailable: ${payload.error || "bag inventory failed"}`, ""));
       select.disabled = true;
       summary.textContent = `Bag root ${payload.root || "not configured"}: ${payload.error || "unavailable"}`;
+      metrics?.replaceChildren();
+      topicStats?.replaceChildren();
       topicsRoot.replaceChildren();
     }
     return;
@@ -911,6 +988,7 @@ on("#refresh", "click", () => {
   refreshVisualTopicsNow();
 });
 on("#topics-refresh", "click", refreshVisualTopicsNow);
+on("#network-window-sec", "change", () => drawNetworkGraph());
 on("#mode-dds", "click", () => setMode("dds"));
 on("#mode-zenoh", "click", () => setMode("zenoh"));
 on("#ros-domain-id", "change", setRosDomain);

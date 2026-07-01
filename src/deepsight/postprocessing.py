@@ -23,6 +23,7 @@ class BagPlayback:
     started_at: float | None = None
     duration_sec: float | None = None
     log_path: str | None = None
+    stopped_progress_percent: float = 0.0
 
     def status(self) -> dict[str, object]:
         progress = playback_progress(self)
@@ -68,6 +69,8 @@ def read_log_tail(log_path: str | None, max_bytes: int = 6000) -> str:
 
 
 def playback_progress(playback: BagPlayback) -> float:
+    if playback.process is None and playback.bag_path:
+        return playback.stopped_progress_percent
     if not playback.started_at or not playback.duration_sec:
         return 0.0
     if playback.process and playback.process.poll() is not None and not playback.loop:
@@ -142,17 +145,21 @@ def start_bag_playback(playback: BagPlayback, config: AppConfig, bag_path: str, 
     playback.started_at = time.monotonic()
     playback.duration_sec = float(bag["duration_sec"]) if bag.get("duration_sec") else None
     playback.log_path = str(log_path)
+    playback.stopped_progress_percent = 0.0
     return {"ok": True, "error": "", "status": playback.status()}
 
 
 def stop_bag_playback(playback: BagPlayback) -> dict[str, object]:
     if not playback.process or playback.process.poll() is not None:
+        playback.stopped_progress_percent = playback_progress(playback)
         playback.process = None
         return {"ok": True, "error": "", "status": playback.status()}
 
+    stopped_progress = playback_progress(playback)
     try:
         os.killpg(playback.process.pid, signal.SIGTERM)
     except ProcessLookupError:
+        playback.stopped_progress_percent = stopped_progress
         playback.process = None
         return {"ok": True, "error": "", "status": playback.status()}
     try:
@@ -161,5 +168,6 @@ def stop_bag_playback(playback: BagPlayback) -> dict[str, object]:
         os.killpg(playback.process.pid, signal.SIGKILL)
         playback.process.wait(timeout=2)
 
+    playback.stopped_progress_percent = stopped_progress
     playback.process = None
     return {"ok": True, "error": "", "status": playback.status()}

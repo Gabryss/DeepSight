@@ -6,6 +6,9 @@ from pathlib import Path
 def test_dashboard_contains_primary_feature_surfaces():
     html = (Path(__file__).parents[1] / "src" / "deepsight" / "web" / "index.html").read_text(encoding="utf-8")
 
+    assert ">Bags<" in html
+    assert "Post Processing</button>" not in html
+
     for element_id in (
         "feed-cloud",
         "feed-map",
@@ -23,6 +26,9 @@ def test_dashboard_contains_primary_feature_surfaces():
         "cloud-canvas",
         "cloud-stats",
         "network-graph",
+        "network-window-sec",
+        "network-topic-picker",
+        "network-legend",
         "ros-activity",
         "ros-domain-id",
         "topics-refresh",
@@ -39,11 +45,13 @@ def test_dashboard_contains_primary_feature_surfaces():
         "costmap-canvas",
         "command-target-select",
         "post-bag-select",
+        "post-bag-metrics",
+        "post-topic-stats",
         "post-topic-list",
         "post-play",
         "post-stop",
         "post-progress-fill",
-        "console-commands",
+        "console-log",
     ):
         assert f'id="{element_id}"' in html
 
@@ -90,6 +98,8 @@ def test_dashboard_loads_visual_renderers():
     assert "/api/visual/topics?refresh=true" in app_js
     assert "renderRosActivity" in app_js
     assert "drawNetworkGraph" in app_js
+    assert "renderNetworkTopicPicker" in app_js
+    assert "selectedNetworkTopics" in app_js
     assert "Loading bags..." in app_js
     assert "No bags found" in app_js
     assert "Could not load bag inventory" in app_js

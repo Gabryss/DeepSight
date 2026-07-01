@@ -4,7 +4,7 @@ from pathlib import Path
 
 from deepsight.config import AppConfig, Mission
 from deepsight import postprocessing
-from deepsight.postprocessing import BagPlayback, build_bag_play_command, find_bag, read_log_tail, start_bag_playback
+from deepsight.postprocessing import BagPlayback, build_bag_play_command, find_bag, read_log_tail, start_bag_playback, stop_bag_playback
 
 
 def _write_bag(root: Path) -> Path:
@@ -107,3 +107,20 @@ def test_playback_progress_and_log_tail(monkeypatch, tmp_path):
 
     assert status["progress_percent"] == 50.0
     assert read_log_tail(str(log_path)) == "line 1\nline 2\n"
+
+
+def test_stopped_playback_progress_stays_frozen(monkeypatch):
+    playback = BagPlayback(
+        process=FakeProcess(),
+        bag_path="/tmp/bag",
+        started_at=10.0,
+        duration_sec=100.0,
+        rate=1.0,
+    )
+    monkeypatch.setattr(postprocessing.time, "monotonic", lambda: 30.0)
+
+    stopped = stop_bag_playback(playback)
+
+    assert stopped["status"]["progress_percent"] == 20.0
+    monkeypatch.setattr(postprocessing.time, "monotonic", lambda: 80.0)
+    assert playback.status()["progress_percent"] == 20.0
